@@ -11,6 +11,16 @@ Construire une API Python/FastAPI capable de :
 3. Planifier un entretien grâce à un agent qui appelle des outils métier.
 4. Diffuser les réponses et les actions de l’agent en streaming SSE.
 
+## Étape 0 — Préparer l’environnement FastAPI
+
+Cette étape sert à créer un point de départ sain avant d’écrire une route. Installer Python 3.11+ et utiliser `uv` pour créer et isoler l’environnement du projet. Initialiser ensuite le manifeste `pyproject.toml`, puis ajouter FastAPI, Uvicorn, Pytest et Ruff.
+
+Vérifier les bases : démarrer une application FastAPI minimale, ouvrir sa documentation interactive à l’adresse `/docs`, et exécuter un premier test. Ne pas encore intégrer de LLM, de base vectorielle ou de PDF.
+
+À ce stade, comprendre le rôle de chaque élément : FastAPI reçoit les requêtes HTTP, Uvicorn exécute le serveur ASGI, Pydantic valide les données et Pytest vérifie le comportement.
+
+**Critère de fin :** le projet possède un environnement reproductible, une application qui démarre localement, la page `/docs` accessible et un test qui passe.
+
 ## Étape 1 — Cadrer les contrats
 
 Définir les routes et leurs modèles Pydantic avant d’implémenter les intégrations :
