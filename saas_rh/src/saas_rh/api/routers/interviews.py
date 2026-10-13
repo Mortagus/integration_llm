@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Form, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, status
 
 from saas_rh.interviews.schemas import InterviewsSlotsResponse
 

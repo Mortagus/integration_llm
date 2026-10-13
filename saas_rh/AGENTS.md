@@ -2,14 +2,13 @@
 
 ## Structure du projet et architecture
 
-Le dépôt ne contient pour l’instant que le cahier des charges. Le projet sera une API Python 3.11+ basée sur FastAPI, organisée comme un monolithe modulaire.
+Le projet est une API Python 3.11+ basée sur FastAPI, organisée comme un monolithe modulaire.
 
-- `src/main.py` : création de l’application FastAPI et enregistrement des routes.
-- `src/api/` : routes HTTP et schémas de transport.
-- `src/candidates/`, `src/rag/`, `src/agent/`, `src/interviews/` : logique métier par domaine.
-- `src/shared/` : configuration et clients LLM/vector store communs.
-- `data/` : politiques RH et jeux de données fictifs versionnés.
-- `tests/` : tests reflétant la structure de `src/`; `docs/` : choix d’architecture.
+- `src/saas_rh/main.py` : création de l’application FastAPI et enregistrement des routeurs.
+- `src/saas_rh/api/routers/` : routes HTTP.
+- `src/saas_rh/{candidates,rag,interviews}/` : schémas et logique métier par domaine.
+- `src/saas_rh/data/{rag,candidates,interviews}/mock_data.py` : constantes Python contenant les données fictives, classées par domaine. Ces modules contiennent les données seulement ; les fonctions métier restent dans leurs modules de domaine.
+- `tests/` : tests API et métier, organisés selon les fonctionnalités.
 
 Les routes valident l’entrée, appellent un service et traduisent le résultat HTTP. Isolez l’extraction PDF, la recherche vectorielle et la réservation derrière des protocoles testables sans réseau.
 
