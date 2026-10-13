@@ -34,13 +34,11 @@ Prévoir des schémas explicites pour le profil candidat, les sources RAG, les r
 
 **Critère de fin :** les requêtes, réponses et cas d’erreur sont documentés avec des exemples JSON, même si les premières routes utilisent des réponses fictives.
 
-## Étape 2 — Implémenter le métier sans LLM
+## Étape 2 — Rassembler les données sources
 
-Ajouter les politiques RH, l’offre de poste, les deux candidats exemples et l’agenda fictif donnés dans l’énoncé. Implémenter d’abord les outils déterministes : recherche de créneaux et réservation.
+Rassembler les données sources fournies dans l’énoncé : politiques RH, offre de poste, deux candidats exemples et agenda fictif. Les organiser par domaine dans `src/saas_rh/data/`, sous forme de constantes Python. Cette étape ne comprend pas encore les fonctions de recherche ou de réservation.
 
-La réservation doit modifier l’agenda en mémoire et refuser un créneau déjà pris ou inexistant.
-
-**Critère de fin :** les tests confirment qu’un créneau est trouvé, réservé, puis indisponible lors d’une seconde tentative.
+**Critère de fin :** les quatre politiques, l’offre, les deux CV exemples et les créneaux de l’agenda sont présents, lisibles et fidèles à l’énoncé.
 
 ## Étape 3 — Parsing structuré des CV
 
@@ -62,7 +60,13 @@ La réponse doit renvoyer les documents ou extraits utilisés afin que l’utili
 
 **Critères de fin :** la question sur les RTT et le CET est répondue avec source ; celle sur la prime de naissance est refusée car absente des politiques.
 
-## Étape 5 — Agent et tool calling
+## Étape 5 — Outils déterministes d’entretien
+
+Implémenter les fonctions de recherche et de réservation à partir de l’agenda fictif. Garder les données initiales dans `data/` et gérer l’état modifiable de l’agenda en mémoire. La réservation doit refuser un créneau absent ou déjà pris.
+
+**Critère de fin :** les tests confirment qu’un créneau est trouvé, réservé, puis indisponible lors d’une seconde tentative.
+
+## Étape 6 — Agent et tool calling
 
 Déclarer les fonctions de recherche et de réservation comme outils accessibles au LLM. Gérer une boucle d’agent qui conserve l’historique des messages et réinjecte le résultat de chaque outil avant de poursuivre.
 
@@ -70,13 +74,13 @@ Le scénario attendu est : demande de rendez-vous, recherche de disponibilités,
 
 **Critère de fin :** une demande pour Jean Dupont le `2026-10-15` déclenche la recherche puis réserve un créneau disponible.
 
-## Étape 6 — Streaming SSE et interface
+## Étape 7 — Streaming SSE et interface
 
 Faire diffuser par `/api/agent/chat` des événements SSE distincts : fragment de texte, appel d’outil, résultat d’outil, erreur et fin de réponse. Construire ensuite une interface minimale qui affiche le texte au fil de l’eau ainsi que les actions exécutées.
 
 **Critère de fin :** un utilisateur voit la progression de la réponse et comprend quels outils l’agent a utilisés.
 
-## Étape 7 — Validation finale
+## Étape 8 — Validation finale
 
 Exécuter les trois démonstrations de l’énoncé : parsing des deux CV, réponses RAG fondée et refusée, puis réservation d’entretien. Ajouter des tests unitaires pour les services et des tests API pour les parcours principaux. Les appels LLM, vector store et e-mail doivent être simulés dans les tests.
 
