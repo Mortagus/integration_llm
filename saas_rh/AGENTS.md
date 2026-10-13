@@ -12,6 +12,10 @@ Le projet est une API Python 3.11+ basée sur FastAPI, organisée comme un monol
 
 Les routes valident l’entrée, appellent un service et traduisent le résultat HTTP. Isolez l’extraction PDF, la recherche vectorielle et la réservation derrière des protocoles testables sans réseau.
 
+## Reprise du travail
+
+Après une interruption ou au début d’une nouvelle session, consultez `REPRISE.md` pour connaître l’avancement et la prochaine action. Utilisez ce fichier comme source unique de suivi : mettez-le à jour si nécessaire au lieu de créer d’autres fichiers d’état.
+
 ## Commandes de développement
 
 Utilisez `uv` comme gestionnaire de dépendances :
