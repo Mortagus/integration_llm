@@ -17,3 +17,7 @@ Le parsing tente le modèle configuré (`GEMINI_MODEL` ou `ANTHROPIC_MODEL`), pu
 Pour Anthropic, l'application utilise le SDK Python officiel et les sorties structurées `messages.parse` avec le schéma Pydantic du candidat. Un abonnement Claude Code n'est pas une clé API générique pour l'application : configurez une clé `ANTHROPIC_API_KEY` autorisée pour l'API Anthropic. Pour changer de fournisseur, modifiez `LLM_PROVIDER` dans le `.env`.
 
 Si Anthropic répond que la clé n'est associée à aucun workspace, renseignez `ANTHROPIC_WORKSPACE_ID` avec l'identifiant du workspace dans le `.env`. Le client enverra alors l'en-tête `anthropic-workspace-id` à chaque requête. Dans l'Anthropic Console, les workspaces se gèrent dans **Settings → Workspaces** ; une clé créée depuis l'onglet **API Keys** d'un workspace y est déjà rattachée. Les clés API sont liées au workspace où elles ont été créées et ne peuvent pas être déplacées.
+
+## Assistant RH RAG
+
+Le service RAG indexe les politiques RH dans ChromaDB à la première question, puis renvoie une réponse accompagnée des politiques retrouvées. La base persistante est enregistrée dans `.chroma/` par défaut ; `CHROMA_DB_PATH` permet de choisir un autre dossier. Le premier indexage utilise la fonction d’embedding par défaut de ChromaDB et peut télécharger son modèle local si celui-ci n’est pas déjà présent.
