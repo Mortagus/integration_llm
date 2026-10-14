@@ -8,8 +8,11 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from openai import OpenAI
 
+from saas_rh.agent.service import AgentService
 from saas_rh.api.routers import agent, candidates, interviews, rag, system
 from saas_rh.candidates.service import CandidateParserService
+from saas_rh.interviews.repository import InterviewScheduleRepository
+from saas_rh.interviews.service import InterviewService
 from saas_rh.rag.service import RAGService
 
 
@@ -22,8 +25,9 @@ def _configured_fallback_models(environment_variable: str) -> tuple[str, ...]:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Create and close the configured shared LLM client."""
+    """Create shared application services and close external clients."""
     load_dotenv()
+    app.state.interview_service = InterviewService(InterviewScheduleRepository())
     provider = os.getenv("LLM_PROVIDER", "gemini").strip().lower()
     client: OpenAI | Anthropic | None = None
 
@@ -55,6 +59,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         raise ValueError("LLM_PROVIDER doit valoir 'gemini' ou 'anthropic'.")
 
     if client is not None:
+        app.state.agent_service = AgentService(
+            llm_client=client,
+            model_name=model_name,
+            interview_service=app.state.interview_service,
+        )
         app.state.candidate_parser_service = CandidateParserService(
             client=client,
             model_name=model_name,
@@ -71,6 +80,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         )
         app.state.rag_service = rag_service
     else:
+        app.state.agent_service = None
         app.state.candidate_parser_service = None
         app.state.rag_service = None
 

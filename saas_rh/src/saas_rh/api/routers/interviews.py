@@ -1,9 +1,11 @@
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query
 
-from saas_rh.interviews.schemas import InterviewsSlotsResponse
+from saas_rh.api.dependencies import get_interview_service
+from saas_rh.interviews.schemas import InterviewSlotSearchInput, InterviewsSlotsResponse
+from saas_rh.interviews.service import InterviewService
 
 router = APIRouter(
     prefix="/api/interviews",
@@ -14,13 +16,17 @@ router = APIRouter(
 @router.get(
     "/slots",
     response_model=InterviewsSlotsResponse,
-    responses={501: {"description": "Interviews Slots non implémenté"}},
 )
 async def get_interviews_slots(
     candidate_id: Annotated[int, Query(gt=0)],
     interview_date: Annotated[date, Query(alias="date")],
+    interview_service: Annotated[InterviewService, Depends(get_interview_service)],
 ) -> InterviewsSlotsResponse:
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Interviews/Slots n'est pas encore implémenté.",
+    """List global recruiter availability for a validated candidate identifier.
+
+    The mock schedule is not candidate-specific; candidate_id remains required
+    by the existing endpoint contract but cannot be resolved to a candidate yet.
+    """
+    return interview_service.search_slots(
+        InterviewSlotSearchInput(date=interview_date)
     )
