@@ -5,74 +5,239 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Interface de test de l’assistant RH de planification des entretiens."
+      content="Espace de travail de l’assistant RH et de recrutement."
     />
-    <title>Assistant RH · Planification des entretiens</title>
+    <title>Espace RH · Assistant de recrutement</title>
     <link rel="stylesheet" href="/static/app.css" />
     <script src="/static/app.js" defer></script>
   </head>
   <body>
-    <main class="app-shell">
+    <div class="app-shell">
       <header class="topbar">
-        <a class="brand" href="/" aria-label="Assistant RH, accueil">
+        <button class="brand" type="button" data-home aria-label="Retour à l’accueil">
           <span class="brand-mark" aria-hidden="true">RH</span>
-          <span>Assistant RH</span>
-        </a>
-        <span class="connection-status">
-          <span class="status-dot" aria-hidden="true"></span>
-          Mode démonstration
-        </span>
+          <span class="brand-name">Espace RH</span>
+        </button>
+        <div class="topbar-right">
+          <span class="environment-pill"><span></span> Environnement de démonstration</span>
+          <button id="back-home" class="back-button" type="button" hidden>
+            <span aria-hidden="true">←</span> Accueil
+          </button>
+        </div>
       </header>
 
-      <section class="chat-panel" aria-labelledby="page-title">
-        <div class="chat-heading">
-          <p class="eyebrow">ESPACE DE TEST</p>
-          <h1 id="page-title">Planifier un entretien</h1>
-          <p class="subtitle">
-            Demandez les disponibilités ou proposez directement une réservation.
-          </p>
-        </div>
+      <main>
+        <section id="view-home" class="page-view home-view" aria-labelledby="home-title">
+          <div class="hero">
+            <div class="hero-copy">
+              <p class="eyebrow">VOTRE ESPACE DE TRAVAIL RH</p>
+              <h1 id="home-title">Le recrutement,<br />avec plus de <em>clarté.</em></h1>
+              <p class="hero-description">
+                Évaluez des profils, trouvez une information RH ou organisez un entretien
+                depuis un même espace.
+              </p>
+            </div>
+            <div class="hero-art" aria-hidden="true">
+              <div class="orbit orbit-one"></div>
+              <div class="orbit orbit-two"></div>
+              <div class="hero-monogram">RH<span>+</span></div>
+              <div class="floating-card float-cv"><span>CV</span><i>✓</i></div>
+              <div class="floating-card float-ai"><span class="ai-spark">✳</span> IA</div>
+              <div class="floating-card float-calendar"><span>15</span><small>OCT.</small></div>
+            </div>
+          </div>
 
-        <div
-          id="conversation"
-          class="conversation"
-          role="log"
-          aria-live="polite"
-          aria-relevant="additions text"
-          aria-label="Conversation avec l’assistant RH"
-        >
-          <article class="message assistant-message welcome-message">
-            <span class="message-label">ASSISTANT RH</span>
-            <p>
-              Bonjour ! Je peux rechercher des créneaux d’entretien et réserver
-              l’un d’eux. Que souhaitez-vous faire ?
-            </p>
-          </article>
-        </div>
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">LES 4 PILIERS DE L’ASSISTANT RH</p>
+              <h2>Que souhaitez-vous faire ?</h2>
+            </div>
+            <span class="section-note">Choisissez un espace pour commencer</span>
+          </div>
 
-        <form id="chat-form" class="composer">
-          <label class="sr-only" for="user-prompt">Votre message</label>
-          <textarea
-            id="user-prompt"
-            name="user_prompt"
-            rows="2"
-            placeholder="Ex. : Quels sont les créneaux disponibles le 15 octobre 2026 ?"
-            required
-          ></textarea>
-          <div class="composer-footer">
-            <span id="form-hint" class="form-hint">
-              Entrée pour envoyer · Maj + Entrée pour un retour à la ligne
-            </span>
-            <button id="send-button" type="submit">
-              <span>Envoyer</span>
-              <span aria-hidden="true">↗</span>
+          <div class="feature-grid">
+            <button class="feature-card card-lilac" type="button" data-open-view="candidate">
+              <span class="card-number">01</span>
+              <span class="feature-icon icon-lilac" aria-hidden="true">▤</span>
+              <span class="feature-card-copy">
+                <strong>Analyser un CV</strong>
+                <span>Extraire les compétences, l’expérience et l’adéquation au poste.</span>
+              </span>
+              <span class="card-endpoint">POST <code>/api/candidates/parse</code></span>
+              <span class="card-arrow" aria-hidden="true">↗</span>
+            </button>
+
+            <button class="feature-card card-blue" type="button" data-open-view="rag">
+              <span class="card-number">02</span>
+              <span class="feature-icon icon-blue" aria-hidden="true">⌕</span>
+              <span class="feature-card-copy">
+                <strong>Consulter les politiques RH</strong>
+                <span>Obtenir une réponse fondée sur les documents internes.</span>
+              </span>
+              <span class="card-endpoint">POST <code>/api/rag/ask</code></span>
+              <span class="card-arrow" aria-hidden="true">↗</span>
+            </button>
+
+            <button class="feature-card card-amber" type="button" data-open-view="schedule">
+              <span class="card-number">03</span>
+              <span class="feature-icon icon-amber" aria-hidden="true">▦</span>
+              <span class="feature-card-copy">
+                <strong>Préparer un entretien</strong>
+                <span>Consulter l’agenda et choisir une date pour un candidat.</span>
+              </span>
+              <span class="card-endpoint">GET <code>/api/interviews/slots</code></span>
+              <span class="card-arrow" aria-hidden="true">↗</span>
+            </button>
+
+            <button class="feature-card card-green" type="button" data-open-view="chat">
+              <span class="card-number">04</span>
+              <span class="feature-icon icon-green" aria-hidden="true">✳</span>
+              <span class="feature-card-copy">
+                <strong>Parler à l’agent RH</strong>
+                <span>Planifier un entretien avec un agent qui agit et répond en direct.</span>
+              </span>
+              <span class="card-endpoint">POST <code>/api/agent/chat</code> · SSE</span>
+              <span class="card-arrow" aria-hidden="true">↗</span>
             </button>
           </div>
-        </form>
-        <p class="disclaimer">
-          Les réservations sont enregistrées dans l’agenda de démonstration en mémoire.
-        </p>
-      </section>
-    </main>
+
+          <footer class="home-footer">
+            <span>Assistant RH <span class="footer-divider">·</span> Démonstrateur de formation</span>
+            <span>Les données d’agenda sont simulées et conservées en mémoire.</span>
+          </footer>
+        </section>
+
+        <section id="view-candidate" class="page-view tool-view" aria-labelledby="candidate-title" hidden>
+          <div class="view-heading">
+            <div class="view-icon icon-lilac" aria-hidden="true">▤</div>
+            <div>
+              <p class="eyebrow">EXTRACTION STRUCTURÉE</p>
+              <h1 id="candidate-title">Analyser un CV</h1>
+              <p class="subtitle">Évaluez le profil par rapport au poste de Lead Developer Python / IA.</p>
+            </div>
+          </div>
+          <div class="endpoint-banner"><span class="method method-post">POST</span><code>/api/candidates/parse</code><span>CV texte ou PDF</span></div>
+
+          <form id="candidate-form" class="form-card">
+            <div class="field-heading">
+              <label for="candidate-input-mode">Source du CV</label>
+              <select id="candidate-input-mode">
+                <option value="text">Coller du texte</option>
+                <option value="pdf">Importer un PDF</option>
+              </select>
+            </div>
+            <div id="candidate-text-field" class="field-group">
+              <label for="candidate-text">Contenu du CV</label>
+              <textarea id="candidate-text" rows="9" placeholder="Collez ici le texte du CV…"></textarea>
+            </div>
+            <div id="candidate-file-field" class="field-group" hidden>
+              <label for="candidate-file">Fichier PDF</label>
+              <input id="candidate-file" type="file" accept="application/pdf,.pdf" />
+              <span class="field-hint">Le PDF doit contenir une couche de texte sélectionnable.</span>
+            </div>
+            <div class="form-actions">
+              <p id="candidate-error" class="inline-error" role="alert" hidden></p>
+              <button class="primary-button" type="submit"><span>Analyser le profil</span><span aria-hidden="true">↗</span></button>
+            </div>
+          </form>
+
+          <section id="candidate-result" class="result-panel" aria-live="polite" hidden></section>
+        </section>
+
+        <section id="view-rag" class="page-view tool-view" aria-labelledby="rag-title" hidden>
+          <div class="view-heading">
+            <div class="view-icon icon-blue" aria-hidden="true">⌕</div>
+            <div>
+              <p class="eyebrow">ASSISTANT RH · RAG</p>
+              <h1 id="rag-title">Les réponses dans vos politiques</h1>
+              <p class="subtitle">Posez une question RH. La réponse indique les documents utilisés.</p>
+            </div>
+          </div>
+          <div class="endpoint-banner"><span class="method method-post">POST</span><code>/api/rag/ask</code><span>Réponse sourcée</span></div>
+
+          <form id="rag-form" class="form-card compact-form">
+            <label for="rag-question">Votre question</label>
+            <textarea id="rag-question" rows="3" placeholder="Ex. : Combien de jours de RTT puis-je placer sur le CET ?" required></textarea>
+            <div class="form-actions">
+              <p id="rag-error" class="inline-error" role="alert" hidden></p>
+              <button class="primary-button" type="submit"><span>Rechercher dans les politiques</span><span aria-hidden="true">↗</span></button>
+            </div>
+          </form>
+
+          <section id="rag-result" class="result-panel" aria-live="polite" hidden></section>
+        </section>
+
+        <section id="view-schedule" class="page-view tool-view" aria-labelledby="schedule-title" hidden>
+          <div class="view-heading">
+            <div class="view-icon icon-amber" aria-hidden="true">▦</div>
+            <div>
+              <p class="eyebrow">AGENT DE QUALIFICATION</p>
+              <h1 id="schedule-title">Préparer un entretien</h1>
+              <p class="subtitle">Vérifiez les disponibilités de l’agenda de démonstration.</p>
+            </div>
+          </div>
+          <div class="endpoint-banner"><span class="method method-get">GET</span><code>/api/interviews/slots</code><span>Agenda de démonstration</span></div>
+
+          <form id="schedule-form" class="form-card compact-form schedule-form">
+            <div class="field-row">
+              <div class="field-group">
+                <label for="candidate-id">Identifiant candidat</label>
+                <input id="candidate-id" type="number" min="1" value="1" required />
+              </div>
+              <div class="field-group">
+                <label for="interview-date">Date de l’entretien</label>
+                <input id="interview-date" type="date" value="2026-10-15" required />
+              </div>
+            </div>
+            <div class="form-actions">
+              <p id="schedule-error" class="inline-error" role="alert" hidden></p>
+              <button class="primary-button" type="submit"><span>Voir les disponibilités</span><span aria-hidden="true">↗</span></button>
+            </div>
+          </form>
+
+          <section id="schedule-result" class="result-panel" aria-live="polite" hidden></section>
+          <aside class="agent-callout">
+            <div><span class="callout-spark" aria-hidden="true">✳</span><div><strong>Vous préférez déléguer ?</strong><p>L’agent peut rechercher puis réserver un créneau pendant la conversation.</p></div></div>
+            <button class="text-button" type="button" data-open-view="chat">Ouvrir l’agent <span aria-hidden="true">→</span></button>
+          </aside>
+        </section>
+
+        <section id="view-chat" class="page-view chat-view" aria-labelledby="chat-title" hidden>
+          <div class="view-heading chat-view-heading">
+            <div class="view-icon icon-green" aria-hidden="true">✳</div>
+            <div>
+              <p class="eyebrow">FUNCTION CALLING · STREAMING SSE</p>
+              <h1 id="chat-title">Agent de recrutement</h1>
+              <p class="subtitle">Demandez une recherche ou une réservation d’entretien.</p>
+            </div>
+          </div>
+          <div class="endpoint-banner"><span class="method method-post">POST</span><code>/api/agent/chat</code><span>Réponse en direct</span></div>
+
+          <div
+            id="conversation"
+            class="conversation"
+            role="log"
+            aria-live="polite"
+            aria-relevant="additions text"
+            aria-label="Conversation avec l’agent de recrutement"
+          >
+            <article class="message assistant-message welcome-message">
+              <span class="message-label">ASSISTANT RH</span>
+              <p>Bonjour ! Je peux rechercher des créneaux et réserver un entretien. Que souhaitez-vous faire ?</p>
+            </article>
+          </div>
+
+          <form id="chat-form" class="composer">
+            <label class="sr-only" for="user-prompt">Votre message</label>
+            <textarea id="user-prompt" name="user_prompt" rows="2" placeholder="Ex. : Trouve un créneau le 15 octobre pour Jean Dupont…" required></textarea>
+            <div class="composer-footer">
+              <span class="form-hint">Entrée pour envoyer · Maj + Entrée pour une nouvelle ligne</span>
+              <button id="send-button" class="primary-button" type="submit"><span>Envoyer</span><span aria-hidden="true">↗</span></button>
+            </div>
+          </form>
+          <p class="disclaimer">Les réservations sont enregistrées dans l’agenda de démonstration en mémoire.</p>
+        </section>
+      </main>
+    </div>
   </body>
 </html>
