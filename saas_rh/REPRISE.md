@@ -47,7 +47,7 @@ Les étapes ci-dessous seront mises à jour et marquées **faites** au fur et à
 
 L'interface est implémentée et a été testée manuellement par l'utilisateur. Elle présente les quatre parcours : parsing candidat, assistant RH RAG, consultation de l'agenda et chat de l'agent. Les résultats sont affichés avec une présentation adaptée à chaque parcours ; le chat rend visibles le texte en streaming et les actions de l'agent.
 
-La dernière suite automatisée standard exécutée après le traitement de S-05 a donné **49 tests réussis, 3 ignorés**. Les trois tests ignorés sont fonctionnels et opt-in : ils nécessitent un serveur local et des appels réels au fournisseur LLM. Les changements ultérieurs de Q-03 et D-01 restent à valider par une prochaine exécution. Les tests RAG fonctionnels avaient réussi lors d'une précédente exécution opt-in ; après le changement de calcul, le test de parsing candidat a été relancé avec Gemini et l'utilisateur en a confirmé le succès.
+La dernière suite automatisée standard (après `AUDIT_2.md`) a donné **67 tests réussis, 3 ignorés**. Les trois tests ignorés sont fonctionnels et opt-in : ils nécessitent un serveur local et des appels réels au fournisseur LLM. Les tests RAG fonctionnels avaient réussi lors d'une précédente exécution opt-in ; après le changement de calcul, le test de parsing candidat a été relancé avec Gemini et l'utilisateur en a confirmé le succès.
 
 Les trois démonstrations fonctionnelles du PDF restent les scénarios de référence : parsing des deux CV, question RAG répondue puis refusée, et recherche/réservation d'un entretien. Les tests fonctionnels réels n'ont pas été activés lors de la validation standard ; ils restent à exécuter séparément si l'on souhaite vérifier l'intégration avec le fournisseur configuré.
 
@@ -75,12 +75,12 @@ Les points sont conservés dans l'ordre de priorité établi après la revue. `[
 
 ### Importants seulement si le projet est exposé ou utilisé en conditions réelles
 
-- [x] **S-02 — Pas d’authentification ni de limitation de débit** : écart accepté et clôturé pour le périmètre retenu ; le projet est un exercice local de formation et n’est pas destiné à être exposé publiquement. À réévaluer avant toute exposition réseau.
+- [ ] **S-02 — Pas d’authentification ni de limitation de débit** : écart accepté et clôturé pour le périmètre retenu ; le projet est un exercice local de formation et n’est pas destiné à être exposé publiquement. À réévaluer avant toute exposition réseau.
 - [x] **D-01 — Données personnelles envoyées au fournisseur** : masquage de données personnelles courantes avant l’appel LLM. Le masquage repose sur des motifs et ne garantit pas l’anonymisation de tout texte libre ; utiliser des CV fictifs pour l’exercice.
 - [x] **D-02 — Score et libellé de verdict** : la page précise que le score est indicatif, fondé sur les éléments extraits du CV, à valider par un recruteur et qu’il ne constitue pas une décision de recrutement.
-- [x] **L-03 — Historique falsifiable par le client** : la taille de l’historique est bornée dans S-03. Son contenu fourni par le client reste falsifiable ; un commentaire dans la route rappelle qu’en production, l’historique devrait être conservé côté serveur ou son intégrité vérifiée. Aucune protection supplémentaire n’est implémentée pour l’exercice.
-- [x] **S-06 — Documentation et en-têtes HTTP** : un TODO près de la création de l’application rappelle d’évaluer le masquage de `/docs` et des en-têtes de sécurité, dont une CSP, avant une mise en production. L’accès à `/docs` reste conservé pour l’exercice local.
-- [x] **S-07 — CVE ChromaDB** : point clôturé pour l’exercice local. Les vulnérabilités relevées concernent le serveur HTTP ChromaDB, alors que le projet utilise `PersistentClient` sans exposer ce serveur. Ne pas lancer ni exposer le serveur ChromaDB ; réévaluer ce risque avant toute exposition réseau ou mise en production.
+- [ ] **L-03 — Historique falsifiable par le client** : la taille de l’historique est bornée dans S-03. Son contenu fourni par le client reste falsifiable ; un commentaire dans la route rappelle qu’en production, l’historique devrait être conservé côté serveur ou son intégrité vérifiée. Aucune protection supplémentaire n’est implémentée pour l’exercice.
+- [ ] **S-06 — Documentation et en-têtes HTTP** : un TODO près de la création de l’application rappelle d’évaluer le masquage de `/docs` et des en-têtes de sécurité, dont une CSP, avant une mise en production. L’accès à `/docs` reste conservé pour l’exercice local.
+- [ ] **S-07 — CVE ChromaDB** : point clôturé pour l’exercice local. Les vulnérabilités relevées concernent le serveur HTTP ChromaDB, alors que le projet utilise `PersistentClient` sans exposer ce serveur. Ne pas lancer ni exposer le serveur ChromaDB ; réévaluer ce risque avant toute exposition réseau ou mise en production.
 
 ### À arbitrer selon l’énoncé ou à classer comme amélioration
 
@@ -98,4 +98,20 @@ Les points sont conservés dans l'ordre de priorité établi après la revue. `[
 - [x] **A-01 — Abstraction des SDK** : ajout de `LLMGateway` avec adaptateurs OpenAI compatibles et Anthropic pour le parsing structuré, les réponses RAG et les tours d’outils en streaming. Les services métier ne dépendent plus des SDK fournisseurs.
 - [x] **A-02 — Refactor de `main.py`** : lecture/validation de la configuration et assemblage des services déplacés dans `application.py`. Le lifespan se limite à charger les réglages, exposer les services sur `app.state` et fermer le client partagé.
 - [x] **A-03 — Cohérence des dépendances** : `get_interview_service` est maintenant synchrone, comme les autres dépendances de services en mémoire.
-- [x] **C-02 — Écarts secondaires avec le PDF** : clôturé comme choix de style d’implémentation. Les noms et statuts des outils diffèrent des exemples du PDF, les routes RAG et agent utilisent `Form`, et l’invitation ainsi que la mise à jour du statut candidat ne sont pas implémentées. Ces différences ne sont pas exigées littéralement par le scénario de validation du plan ; le scénario de recherche et réservation est couvert, et l’invitation est explicitement simulée.
+- [ ] **C-02 — Écarts secondaires avec le PDF** : clôturé comme choix de style d’implémentation. Les noms et statuts des outils diffèrent des exemples du PDF, les routes RAG et agent utilisent `Form`, et l’invitation ainsi que la mise à jour du statut candidat ne sont pas implémentées. Ces différences ne sont pas exigées littéralement par le scénario de validation du plan ; le scénario de recherche et réservation est couvert, et l’invitation est explicitement simulée.
+
+## Suivi des constats de `AUDIT_2.md`
+
+La légende ci-dessus s'applique. Dans la liste précédente, `[ ]` marque désormais les risques acceptés hors périmètre (S-02, S-06, S-07, L-03, C-02), pas des corrections.
+
+- [x] **N-01 — Erreur fournisseur 400/401/403 donnait une 500** : la route de parsing capture `LLMProviderStatusError` et renvoie un 503 générique ; test de route paramétré.
+- [x] **N-02 — Masquage qui supprimait les dates** : motif téléphone restreint aux formats français et internationaux, sans `/` ; liens LinkedIn/GitHub masqués ; `tests/test_privacy.py` ajouté. Limite : nom hors en-tête, adresse non étiquetée ou « Né à… » dans le texte libre ne sont pas masqués.
+- [x] **N-03 — `.gitignore` du PDF personnel ancré** : motif `**/saas_rh/data/candidates/*.pdf`, vérifié avec `git check-ignore` dans le dépôt actuel et dans un clone direct de `saas_rh`.
+- [x] **N-04 — Bornes LLM** : `max_tokens=4096` sur le parsing OpenAI/Gemini ; timeout de 60 s sur les deux clients (plus large que les 30 s envisagés, car l'analyse d'un CV peut être longue).
+- [x] **N-05 — Typage** : `mypy` ne signale plus rien (`TypeVar` dans le `Protocol`, noms de variables distincts dans l'agent, clients Gemini/Anthropic séparés). `mypy` n'est pas installé comme dépendance de développement.
+- [ ] **N-06 — Pas de limite de corps avant le multipart** : accepté pour le périmètre local ; à traiter au niveau du proxy avant toute exposition (voir README).
+- [x] **N-07 — Définitions d'outils dupliquées** : la passerelle réutilise `openai_interview_tools()` et `anthropic_interview_tools()`.
+- [x] **L-02 (suite) — Variante de refus RAG** : le refus est reconnu par inclusion de la phrase attendue ; l'interface affiche les sources seulement si le serveur en renvoie. Les distances Chroma restent inutilisées.
+- [x] **D-02 (suite)** : le prompt de parsing interdit de citer âge, sexe, nationalité, situation familiale ou santé dans les points de vigilance. README : section sur la sécurité, le traitement des données et la supervision humaine.
+- [x] **Outils** : `[tool.ruff.lint]` ajouté (`E, F, I, B, UP, S, ASYNC`) ; `ruff check`, `ruff format --check`, `mypy` propres.
+- [ ] **Non vérifié** : comportement à la déconnexion du navigateur pendant un tour d'agent (à tester avec un vrai `uvicorn`). `chmod 600` appliqué au `.env` ; la variable inutilisée `OPENROUTER_API_KEY` reste à retirer à la main.

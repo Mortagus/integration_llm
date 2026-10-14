@@ -1,7 +1,18 @@
 import re
 
 _EMAIL_PATTERN = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
-_PHONE_PATTERN = re.compile(r"(?<!\w)(?:\+|00)?(?:\d[\s()./-]*){9,15}(?!\w)")
+# Formats français (06 12 34 56 78, (06) 12…) et internationaux (+33…, 0033…).
+# Le "/" est volontairement exclu des séparateurs pour ne pas masquer des
+# périodes comme "03/2019 - 11/2021".
+_PHONE_PATTERN = re.compile(
+    r"(?<![\w/])(?:"
+    r"\(?0[1-9]\)?(?:[\s.-]?\d{2}){4}"
+    r"|(?:\+|00)\d{1,3}(?:[\s.-]?\(?\d{1,4}\)?){3,6}"
+    r")(?![\w/])"
+)
+_PROFILE_URL_PATTERN = re.compile(
+    r"(?i)(?:https?://)?(?:[\w-]+\.)*(?:linkedin|github)\.com/\S*"
+)
 _LABELED_PERSONAL_DATA_PATTERN = re.compile(
     r"(?im)^\s*(?:"
     r"nom(?:\s+complet)?|prénom|name|full\s+name|candidate|candidat|"
@@ -49,10 +60,6 @@ def redact_candidate_pii(cv_text: str) -> str:
     redacted_text = _LABELED_PROFILE_URL_PATTERN.sub(
         "[LIEN DE PROFIL SUPPRIMÉ]", redacted_text
     )
+    redacted_text = _PROFILE_URL_PATTERN.sub("[LIEN DE PROFIL SUPPRIMÉ]", redacted_text)
     redacted_text = _EMAIL_PATTERN.sub("[EMAIL SUPPRIMÉ]", redacted_text)
-
-    def replace_phone(match: re.Match[str]) -> str:
-        digits = re.sub(r"\D", "", match.group())
-        return "[TÉLÉPHONE SUPPRIMÉ]" if 9 <= len(digits) <= 15 else match.group()
-
-    return _PHONE_PATTERN.sub(replace_phone, redacted_text)
+    return _PHONE_PATTERN.sub("[TÉLÉPHONE SUPPRIMÉ]", redacted_text)

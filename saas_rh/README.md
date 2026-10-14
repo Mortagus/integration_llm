@@ -91,4 +91,10 @@ Les variables disponibles sont documentées dans [`.env.example`](.env.example).
 
 Les appels Gemini compatibles OpenAI fixent `temperature=0.0`. Les appels Anthropic ne transmettent pas ce paramètre : ils utilisent le comportement par défaut du modèle. Leurs résultats ne sont donc pas configurés pour être déterministes ; le paramètre n'a pas été ajouté sans vérifier sa compatibilité avec les modèles configurés.
 
+## Sécurité et données personnelles
+
+Ce projet est un exercice local, sans authentification ni limitation de débit. Garde le serveur sur `127.0.0.1` (valeur par défaut d'`uvicorn`) et ne l'expose pas sur Internet sans ajouter ces protections, une limite de taille de corps de requête (6 Mo suffisent) et le masquage de `/docs`. Ne lance jamais de serveur ChromaDB (`chroma run`) : l'application n'utilise que le client embarqué, car les CVE connues de `chromadb` concernent son serveur HTTP.
+
+Le texte d'un CV envoyé à l'analyse part chez le fournisseur LLM configuré (Gemini ou Anthropic). Un masquage par motifs retire avant l'envoi les e-mails, téléphones, liens de profil, l'en-tête de nom et les champs étiquetés (adresse, date de naissance…). C'est une réduction des données, pas une anonymisation : un nom ou une adresse dans le corps du texte peut passer. N'utilise que des CV fictifs pendant la formation. Le score est indicatif et doit être validé par un recruteur ; il ne constitue pas une décision de recrutement.
+
 Pour poursuivre le travail, consulter [`PLAN_PROJET.md`](PLAN_PROJET.md) et [`REPRISE.md`](REPRISE.md).

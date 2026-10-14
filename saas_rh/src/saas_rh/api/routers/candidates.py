@@ -19,6 +19,7 @@ from saas_rh.candidates.service import (
     CandidateModelsUnavailableError,
     CandidateParserService,
 )
+from saas_rh.llm.gateway import LLMProviderStatusError
 
 router = APIRouter(
     prefix="/api/candidates",
@@ -83,7 +84,7 @@ def parse_candidate(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Le service d'analyse est momentanément indisponible.",
         ) from error
-    except (OpenAIAPIError, AnthropicAPIError) as error:
+    except (LLMProviderStatusError, OpenAIAPIError, AnthropicAPIError) as error:
         logger.error(
             "Échec du fournisseur LLM pendant le parsing : type=%s",
             type(error).__name__,

@@ -55,7 +55,7 @@ class RAGService:
             RagSource(
                 id=ids[index] if index < len(ids) else f"policy_{index + 1}",
                 title=(
-                    metadatas[index].get("title", "Politique RH")
+                    str(metadatas[index].get("title", "Politique RH"))
                     if index < len(metadatas) and metadatas[index]
                     else "Politique RH"
                 ),
@@ -80,7 +80,7 @@ class RAGService:
             f"{context}"
         )
         answer = self._generate_answer(question, system_prompt)
-        if answer == NO_CONTEXT_RESPONSE:
+        if NO_CONTEXT_RESPONSE in answer:
             return RagAskResponse(content=answer, sources=[])
         return RagAskResponse(content=answer, sources=sources)
 

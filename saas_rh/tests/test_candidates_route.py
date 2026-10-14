@@ -1,5 +1,6 @@
 from unittest.mock import Mock
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -7,6 +8,7 @@ from saas_rh.api.dependencies import get_candidate_parser_service
 from saas_rh.api.routers.candidates import router
 from saas_rh.candidates.schemas import CandidateParseResponse
 from saas_rh.candidates.service import CandidateParserService
+from saas_rh.llm.gateway import LLMProviderStatusError
 
 
 def make_client(parser: Mock) -> TestClient:
@@ -66,3 +68,23 @@ def test_parse_candidate_rejects_missing_input_over_http() -> None:
     assert response.json() == {
         "detail": "Fournissez exactement un CV texte ou un fichier CV."
     }
+
+
+@pytest.mark.parametrize("provider_status", [400, 401, 403])
+def test_parse_candidate_translates_non_retryable_provider_errors(
+    provider_status: int,
+) -> None:
+    parser = Mock(spec=CandidateParserService)
+    parser.parse_candidate.side_effect = LLMProviderStatusError(
+        provider_status, "détail interne du fournisseur"
+    )
+
+    response = make_client(parser).post(
+        "/api/candidates/parse", data={"cv_text": "CV de développeur"}
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "detail": "Le service d'analyse est momentanément indisponible."
+    }
+    assert "interne" not in response.text

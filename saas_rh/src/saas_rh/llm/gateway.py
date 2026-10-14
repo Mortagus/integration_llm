@@ -1,7 +1,7 @@
 import json
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any, Protocol, TypeVar
 
 from anthropic import Anthropic
 from anthropic import APIStatusError as AnthropicAPIStatusError
@@ -9,7 +9,12 @@ from openai import APIStatusError as OpenAIAPIStatusError
 from openai import OpenAI
 from pydantic import BaseModel
 
-from saas_rh.interviews.tools import INTERVIEW_TOOL_DEFINITIONS
+from saas_rh.interviews.tools import (
+    anthropic_interview_tools,
+    openai_interview_tools,
+)
+
+SchemaT = TypeVar("SchemaT", bound=BaseModel)
 
 
 class LLMProviderStatusError(RuntimeError):
@@ -36,8 +41,8 @@ class LLMGateway(Protocol):
         model_name: str,
         system_prompt: str,
         user_prompt: str,
-        schema: type[BaseModel],
-    ) -> BaseModel | None: ...
+        schema: type[SchemaT],
+    ) -> SchemaT | None: ...
 
     def complete(
         self, model_name: str, system_prompt: str, user_prompt: str
@@ -60,8 +65,8 @@ class OpenAICompatibleGateway:
         model_name: str,
         system_prompt: str,
         user_prompt: str,
-        schema: type[BaseModel],
-    ) -> BaseModel | None:
+        schema: type[SchemaT],
+    ) -> SchemaT | None:
         try:
             response = self.client.chat.completions.parse(
                 model=model_name,
@@ -70,6 +75,7 @@ class OpenAICompatibleGateway:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
+                max_tokens=4096,
                 temperature=0.0,
             )
         except OpenAIAPIStatusError as error:
@@ -96,21 +102,15 @@ class OpenAICompatibleGateway:
         system_prompt: str,
         messages: Sequence[dict[str, Any]],
     ) -> Iterator[LLMStreamEvent]:
-        tool_definitions = [
-            {
-                "type": "function",
-                "function": {
-                    "name": definition.name,
-                    "description": definition.description,
-                    "parameters": definition.input_model.model_json_schema(),
-                },
-            }
-            for definition in INTERVIEW_TOOL_DEFINITIONS
+        tool_definitions = openai_interview_tools()
+        chat_messages: list[Any] = [
+            {"role": "system", "content": system_prompt},
+            *messages,
         ]
         assembled_calls: dict[int, dict[str, str]] = {}
         with self.client.chat.completions.create(
             model=model_name,
-            messages=[{"role": "system", "content": system_prompt}, *messages],
+            messages=chat_messages,
             tools=tool_definitions,
             tool_choice="auto",
             parallel_tool_calls=False,
@@ -152,8 +152,8 @@ class AnthropicGateway:
         model_name: str,
         system_prompt: str,
         user_prompt: str,
-        schema: type[BaseModel],
-    ) -> BaseModel | None:
+        schema: type[SchemaT],
+    ) -> SchemaT | None:
         try:
             response = self.client.messages.parse(
                 model=model_name,
@@ -185,15 +185,8 @@ class AnthropicGateway:
         system_prompt: str,
         messages: Sequence[dict[str, Any]],
     ) -> Iterator[LLMStreamEvent]:
-        tool_definitions = [
-            {
-                "name": definition.name,
-                "description": definition.description,
-                "input_schema": definition.input_model.model_json_schema(),
-            }
-            for definition in INTERVIEW_TOOL_DEFINITIONS
-        ]
-        anthropic_messages = self._messages_for_anthropic(messages)
+        tool_definitions = anthropic_interview_tools()
+        anthropic_messages: list[Any] = self._messages_for_anthropic(messages)
         with self.client.messages.stream(
             model=model_name,
             max_tokens=1024,

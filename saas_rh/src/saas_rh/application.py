@@ -15,6 +15,7 @@ from saas_rh.llm.gateway import AnthropicGateway, LLMGateway, OpenAICompatibleGa
 from saas_rh.rag.service import RAGService
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+LLM_REQUEST_TIMEOUT_SECONDS = 60.0
 
 
 @dataclass(frozen=True)
@@ -105,24 +106,26 @@ def _build_llm_client_and_gateway(
     if not settings.api_key:
         return None, None
     if settings.provider == "gemini":
-        client = OpenAI(
+        openai_client = OpenAI(
             base_url=settings.base_url,
             api_key=settings.api_key,
             max_retries=0,
+            timeout=LLM_REQUEST_TIMEOUT_SECONDS,
         )
-        return client, OpenAICompatibleGateway(client)
+        return openai_client, OpenAICompatibleGateway(openai_client)
 
-    client = Anthropic(
+    anthropic_client = Anthropic(
         api_key=settings.api_key,
+        base_url=settings.base_url,
         max_retries=0,
+        timeout=LLM_REQUEST_TIMEOUT_SECONDS,
         default_headers=(
             {"anthropic-workspace-id": settings.anthropic_workspace_id}
             if settings.anthropic_workspace_id
-            else {}
+            else None
         ),
-        **({"base_url": settings.base_url} if settings.base_url else {}),
     )
-    return client, AnthropicGateway(client)
+    return anthropic_client, AnthropicGateway(anthropic_client)
 
 
 def build_application_services(

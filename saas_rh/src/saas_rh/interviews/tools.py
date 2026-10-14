@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -39,7 +40,7 @@ INTERVIEW_TOOL_DEFINITIONS = (
 )
 
 
-def openai_interview_tools() -> list[dict[str, object]]:
+def openai_interview_tools() -> list[Any]:
     """Return tool definitions in OpenAI Chat Completions format."""
     return [
         {
@@ -54,7 +55,7 @@ def openai_interview_tools() -> list[dict[str, object]]:
     ]
 
 
-def anthropic_interview_tools() -> list[dict[str, object]]:
+def anthropic_interview_tools() -> list[Any]:
     """Return tool definitions in Anthropic Messages format."""
     return [
         {

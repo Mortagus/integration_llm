@@ -43,7 +43,8 @@ class CandidateParserService:
 
     def parse_candidate(self, cv_text: str) -> CandidateParseResponse:
         """Extract CV facts, calculate a deterministic score, and validate output."""
-        # TODO: Une recherche sur l'injection de prompt pourrait aider à mieux protéger les données.
+        # TODO: une recherche sur l'injection de prompt pourrait mieux
+        # protéger les données.
         redacted_cv_text = redact_candidate_pii(cv_text)
         system_prompt = (
             "Tu es un assistant chargé d'extraire des faits d'un CV à partir "
@@ -67,6 +68,9 @@ class CandidateParserService:
             "Si aucun niveau d'études n'est mentionné, retourne null sans en "
             "déduire ni inventer un. "
             "Justifie les points de vigilance à partir du CV et de l'offre. "
+            "Ne mentionne jamais l'âge, le sexe, la nationalité, la situation "
+            "familiale, l'état de santé ni aucune autre donnée sensible, même si "
+            "le CV les indique. "
             "Retourne au maximum 50 années d'expérience."
         )
         user_prompt = json.dumps(

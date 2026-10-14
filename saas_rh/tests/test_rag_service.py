@@ -112,3 +112,22 @@ def test_answer_question_supports_anthropic_messages_client() -> None:
     assert response.content == "Dix jours de RTT. [rh_doc_02]"
     client.messages.create.assert_called_once()
     assert "temperature" not in client.messages.create.call_args.kwargs
+
+
+def test_answer_question_drops_sources_when_refusal_has_extra_wording() -> None:
+    service, _, llm_client = make_service(
+        {
+            "ids": [["rh_doc_04"]],
+            "documents": [["Mutuelle prise en charge à 80 %."]],
+            "metadatas": [[{"title": "Grille de Rémunération & Avantages"}]],
+            "distances": [[0.9]],
+        }
+    )
+    llm_client.complete.return_value = (
+        "Je ne trouve pas cette information dans les politiques RH fournies. "
+        "Contactez votre responsable RH."
+    )
+
+    response = service.answer_question("Quelle est la prime de naissance ?")
+
+    assert response.sources == []

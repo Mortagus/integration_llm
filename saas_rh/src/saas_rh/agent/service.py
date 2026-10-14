@@ -170,15 +170,17 @@ class AgentService:
                 return {"error": "Les arguments de l'outil doivent être un objet."}
 
             if tool_name == "search_interview_slots":
-                request = InterviewSlotSearchInput.model_validate(arguments)
-                result = self.interview_service.search_slots(request)
-                searched_slots[request.date.isoformat()] = result.available_slots
-                return result.model_dump(mode="json")
+                search_request = InterviewSlotSearchInput.model_validate(arguments)
+                search_result = self.interview_service.search_slots(search_request)
+                searched_slots[search_request.date.isoformat()] = (
+                    search_result.available_slots
+                )
+                return search_result.model_dump(mode="json")
 
             if tool_name == "reserve_interview_slot":
-                request = InterviewReservationInput.model_validate(arguments)
-                interview_date = request.date.isoformat()
-                interview_time = request.time.strftime("%H:%M")
+                reservation = InterviewReservationInput.model_validate(arguments)
+                interview_date = reservation.date.isoformat()
+                interview_time = reservation.time.strftime("%H:%M")
                 if interview_time not in searched_slots.get(interview_date, []):
                     return InterviewReservationResult(
                         status=InterviewReservationStatus.UNAVAILABLE,
@@ -189,10 +191,10 @@ class AgentService:
                         ),
                     ).model_dump(mode="json")
 
-                result = self.interview_service.reserve_slot(request)
-                if result.status is InterviewReservationStatus.SUCCEEDED:
+                reservation_result = self.interview_service.reserve_slot(reservation)
+                if reservation_result.status is InterviewReservationStatus.SUCCEEDED:
                     searched_slots[interview_date].remove(interview_time)
-                return result.model_dump(mode="json")
+                return reservation_result.model_dump(mode="json")
 
             return {"error": f"Outil inconnu : {tool_name}."}
         except (json.JSONDecodeError, ValidationError, TypeError, ValueError):

@@ -1,6 +1,5 @@
 const views = [...document.querySelectorAll(".page-view")];
 const backHomeButton = document.querySelector("#back-home");
-const NO_CONTEXT_RESPONSE = "Je ne trouve pas cette information dans les politiques RH fournies.";
 
 function showView(viewName, updateLocation = true) {
   const selectedView = document.querySelector(`#view-${viewName}`);
@@ -224,7 +223,7 @@ ragForm.addEventListener("submit", async (event) => {
     ragResult.append(createElement("h2", "result-title", "Réponse de l’assistant"));
     ragResult.append(createElement("p", "answer-copy", result.content));
 
-    if (result.content !== NO_CONTEXT_RESPONSE) {
+    if (result.sources?.length) {
       const sources = createElement("section", "result-section");
       sources.append(createElement("h3", "", "Sources consultées"));
       if (result.sources?.length) {

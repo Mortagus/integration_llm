@@ -90,7 +90,7 @@ Faire diffuser par `/api/agent/chat` des événements SSE distincts : fragment d
 
 Exécuter les trois démonstrations de l’énoncé : parsing des deux CV, réponses RAG fondée et refusée, puis réservation d’entretien. Ajouter des tests unitaires pour les services et des tests API pour les parcours principaux. Les appels LLM, vector store et e-mail doivent être simulés dans les tests.
 
-**État : validation réussie.** Après l'ajout du calcul déterministe du score, `uv run pytest` a donné **48 tests réussis et 3 ignorés**. Les tests ignorés sont les tests fonctionnels opt-in qui nécessitent un serveur local et des appels LLM réels ; le test de parsing candidat a ensuite été relancé avec Gemini et confirmé comme réussi par l'utilisateur. Les tests fonctionnels RAG avaient aussi réussi lors d'une précédente exécution opt-in. L'interface a été vérifiée manuellement par l'utilisateur.
+**État : validation réussie.** Après l'ajout du calcul déterministe du score, `uv run pytest` a donné **48 tests réussis et 3 ignorés** (67 réussis et 3 ignorés après les corrections des audits). Les tests ignorés sont les tests fonctionnels opt-in qui nécessitent un serveur local et des appels LLM réels ; le test de parsing candidat a ensuite été relancé avec Gemini et confirmé comme réussi par l'utilisateur. Les tests fonctionnels RAG avaient aussi réussi lors d'une précédente exécution opt-in. L'interface a été vérifiée manuellement par l'utilisateur.
 
 ## Principes à préserver
 
