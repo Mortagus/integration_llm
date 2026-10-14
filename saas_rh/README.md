@@ -45,6 +45,8 @@ cp .env.example .env
 
 Dans `.env`, définis `LLM_PROVIDER` à `gemini` ou `anthropic`, puis renseigne la clé et le nom de modèle correspondants. Avec une clé Gemini, l'URL de base est également requise ; si une clé est présente mais qu'un réglage requis manque, l'application échoue au démarrage avec le nom de la variable manquante. Les clés ne doivent jamais être ajoutées à Git. Pour Anthropic, `ANTHROPIC_WORKSPACE_ID` est facultatif et ne sert que si la clé l'exige ; `ANTHROPIC_BASE_URL` peut rester vide pour utiliser le défaut du SDK.
 
+Sans `.env` ni clé, l'application démarre quand même : l'interface et `/health` fonctionnent, `GET /api/interviews/slots` aussi, et les routes qui appellent un LLM (parsing, RAG, agent) répondent 503 « service non configuré ». Les tests n'ont pas besoin de clé non plus. Avec une clé, les politiques RH sont indexées **au démarrage** dans ChromaDB, ce qui peut télécharger un modèle d'embedding au premier lancement (connexion nécessaire, quelques instants).
+
 Si le dépôt cloné ne contient pas de sous-dossier `saas_rh` parce que ce projet a été cloné directement, exécute les commandes depuis la racine du clone et omets `cd saas_rh`.
 
 ## Lancer l'application
