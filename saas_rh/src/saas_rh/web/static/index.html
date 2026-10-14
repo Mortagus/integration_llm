@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Interface de test de l’assistant RH de planification des entretiens."
+    />
+    <title>Assistant RH · Planification des entretiens</title>
+    <link rel="stylesheet" href="/static/app.css" />
+    <script src="/static/app.js" defer></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Assistant RH, accueil">
+          <span class="brand-mark" aria-hidden="true">RH</span>
+          <span>Assistant RH</span>
+        </a>
+        <span class="connection-status">
+          <span class="status-dot" aria-hidden="true"></span>
+          Mode démonstration
+        </span>
+      </header>
+
+      <section class="chat-panel" aria-labelledby="page-title">
+        <div class="chat-heading">
+          <p class="eyebrow">ESPACE DE TEST</p>
+          <h1 id="page-title">Planifier un entretien</h1>
+          <p class="subtitle">
+            Demandez les disponibilités ou proposez directement une réservation.
+          </p>
+        </div>
+
+        <div
+          id="conversation"
+          class="conversation"
+          role="log"
+          aria-live="polite"
+          aria-relevant="additions text"
+          aria-label="Conversation avec l’assistant RH"
+        >
+          <article class="message assistant-message welcome-message">
+            <span class="message-label">ASSISTANT RH</span>
+            <p>
+              Bonjour ! Je peux rechercher des créneaux d’entretien et réserver
+              l’un d’eux. Que souhaitez-vous faire ?
+            </p>
+          </article>
+        </div>
+
+        <form id="chat-form" class="composer">
+          <label class="sr-only" for="user-prompt">Votre message</label>
+          <textarea
+            id="user-prompt"
+            name="user_prompt"
+            rows="2"
+            placeholder="Ex. : Quels sont les créneaux disponibles le 15 octobre 2026 ?"
+            required
+          ></textarea>
+          <div class="composer-footer">
+            <span id="form-hint" class="form-hint">
+              Entrée pour envoyer · Maj + Entrée pour un retour à la ligne
+            </span>
+            <button id="send-button" type="submit">
+              <span>Envoyer</span>
+              <span aria-hidden="true">↗</span>
+            </button>
+          </div>
+        </form>
+        <p class="disclaimer">
+          Les réservations sont enregistrées dans l’agenda de démonstration en mémoire.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>

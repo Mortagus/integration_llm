@@ -1,5 +1,5 @@
 import json
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -7,6 +7,7 @@ from anthropic import Anthropic
 from openai import OpenAI
 from pydantic import ValidationError
 
+from saas_rh.agent.schemas import AgentConversationMessage
 from saas_rh.interviews.schemas import (
     InterviewReservationInput,
     InterviewReservationResult,
@@ -18,7 +19,9 @@ from saas_rh.interviews.tools import anthropic_interview_tools, openai_interview
 
 AGENT_SYSTEM_PROMPT = (
     "Tu es un assistant de recrutement. Aide à planifier les entretiens en "
-    "utilisant les outils métier. Cherche toujours les créneaux avant de "
+    "utilisant les outils métier. Pour chaque demande de réservation, cherche "
+    "les créneaux pendant le tour courant, même si une recherche antérieure "
+    "figure dans l'historique. Cherche toujours les créneaux avant de "
     "réserver et ne choisis que parmi ceux retournés pour la date demandée. "
     "Ne confirme jamais une réservation si l'outil ne retourne pas le statut "
     "SUCCEEDED. Si une information nécessaire manque, demande-la à l'utilisateur."
@@ -64,24 +67,38 @@ class AgentService:
             return self._respond_with_anthropic(user_prompt, searched_slots)
         return self._respond_with_openai(user_prompt, searched_slots)
 
-    def stream_events(self, user_prompt: str) -> Iterator[AgentStreamEvent]:
+    def stream_events(
+        self,
+        user_prompt: str,
+        conversation_history: Sequence[AgentConversationMessage] = (),
+    ) -> Iterator[AgentStreamEvent]:
         """Yield text, tool activity, and completion events for one request."""
         if not user_prompt.strip():
             raise ValueError("Le message utilisateur ne peut pas être vide.")
 
         searched_slots: dict[str, list[str]] = {}
         if isinstance(self.llm_client, Anthropic):
-            yield from self._stream_with_anthropic(user_prompt, searched_slots)
+            yield from self._stream_with_anthropic(
+                user_prompt,
+                searched_slots,
+                conversation_history,
+            )
         else:
-            yield from self._stream_with_openai(user_prompt, searched_slots)
+            yield from self._stream_with_openai(
+                user_prompt,
+                searched_slots,
+                conversation_history,
+            )
 
     def _stream_with_openai(
         self,
         user_prompt: str,
         searched_slots: dict[str, list[str]],
+        conversation_history: Sequence[AgentConversationMessage],
     ) -> Iterator[AgentStreamEvent]:
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": AGENT_SYSTEM_PROMPT},
+            *(message.model_dump() for message in conversation_history),
             {"role": "user", "content": user_prompt},
         ]
         tools = openai_interview_tools()
@@ -173,8 +190,12 @@ class AgentService:
         self,
         user_prompt: str,
         searched_slots: dict[str, list[str]],
+        conversation_history: Sequence[AgentConversationMessage],
     ) -> Iterator[AgentStreamEvent]:
-        messages: list[dict[str, Any]] = [{"role": "user", "content": user_prompt}]
+        messages: list[dict[str, Any]] = [
+            *(message.model_dump() for message in conversation_history),
+            {"role": "user", "content": user_prompt},
+        ]
         tools = anthropic_interview_tools()
 
         for tool_round in range(self.max_tool_rounds + 1):

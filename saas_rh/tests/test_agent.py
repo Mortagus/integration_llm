@@ -1,6 +1,8 @@
 import asyncio
+import json
 from types import SimpleNamespace
 
+from saas_rh.agent.schemas import AgentConversationMessage
 from saas_rh.api.routers.agent import agent_chat
 
 
@@ -8,18 +10,25 @@ class FakeAgentService:
     def __init__(self, events: list[SimpleNamespace] | None = None) -> None:
         self.events = events or []
         self.user_prompt: str | None = None
+        self.conversation_history = []
 
-    def stream_events(self, user_prompt: str):
+    def stream_events(self, user_prompt: str, conversation_history=()):
         self.user_prompt = user_prompt
+        self.conversation_history = list(conversation_history)
         yield from self.events
 
 
-async def _collect_agent_events(agent_service, user_prompt: str):
+async def _collect_agent_events(
+    agent_service,
+    user_prompt: str,
+    conversation_history_json: str | None = None,
+):
     return [
         event
         async for event in agent_chat(
             agent_service=agent_service,
             user_prompt=user_prompt,
+            conversation_history_json=conversation_history_json,
         )
     ]
 
@@ -48,11 +57,37 @@ def test_agent_chat_streams_text_tools_results_and_completion() -> None:
         ("done", {"status": "completed"}),
     ]
     assert service.user_prompt == "Trouve un créneau."
+    assert service.conversation_history == []
+
+
+def test_agent_chat_passes_validated_conversation_history_to_service() -> None:
+    service = FakeAgentService(
+        [SimpleNamespace(event_type="done", data={"status": "completed"})]
+    )
+    history = [
+        {
+            "role": "user",
+            "content": "Recherche le 2026-10-15 pour Jean Dupont.",
+        },
+        {"role": "assistant", "content": "Les créneaux sont 09:00 et 11:00."},
+    ]
+
+    asyncio.run(
+        _collect_agent_events(
+            service,
+            "Je prends 09:00.",
+            conversation_history_json=json.dumps(history),
+        )
+    )
+
+    assert service.conversation_history == [
+        AgentConversationMessage.model_validate(message) for message in history
+    ]
 
 
 def test_agent_chat_returns_error_and_done_events_when_service_fails() -> None:
     class FailingAgentService:
-        def stream_events(self, user_prompt: str):
+        def stream_events(self, user_prompt: str, conversation_history=()):
             raise RuntimeError("Erreur simulée")
             yield  # pragma: no cover
 

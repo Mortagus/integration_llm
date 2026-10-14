@@ -5,6 +5,7 @@ import pytest
 from anthropic import Anthropic
 from openai import OpenAI
 
+from saas_rh.agent.schemas import AgentConversationMessage
 from saas_rh.agent.service import AgentService
 from saas_rh.interviews.repository import InterviewScheduleRepository
 from saas_rh.interviews.schemas import InterviewSlotSearchInput
@@ -308,9 +309,13 @@ def test_anthropic_agent_streams_text_and_completion() -> None:
         model_name="modele-test",
         interview_service=InterviewService(InterviewScheduleRepository()),
     )
+    history = [
+        AgentConversationMessage(role="user", content="Je cherche un créneau."),
+        AgentConversationMessage(role="assistant", content="09:00 est disponible."),
+    ]
 
     try:
-        events = list(service.stream_events("Bonjour"))
+        events = list(service.stream_events("Je choisis 09:00.", history))
     finally:
         client.close()
 
@@ -319,3 +324,54 @@ def test_anthropic_agent_streams_text_and_completion() -> None:
         ("text", {"text": " !"}),
         ("done", {"status": "completed"}),
     ]
+    assert client.messages.stream.call_args.kwargs["messages"] == [
+        {"role": "user", "content": "Je cherche un créneau."},
+        {"role": "assistant", "content": "09:00 est disponible."},
+        {"role": "user", "content": "Je choisis 09:00."},
+    ]
+
+
+def test_openai_agent_includes_previous_turns_in_the_next_request() -> None:
+    client = OpenAI(api_key="test-api-key")
+    response_chunk = SimpleNamespace(
+        choices=[
+            SimpleNamespace(
+                delta=SimpleNamespace(content="Je vérifie ce créneau.", tool_calls=None)
+            )
+        ]
+    )
+    client.chat.completions.create = Mock(
+        return_value=FakeStream([response_chunk])
+    )
+    service = AgentService(
+        llm_client=client,
+        model_name="modele-test",
+        interview_service=InterviewService(InterviewScheduleRepository()),
+    )
+    conversation_history = [
+        AgentConversationMessage(
+            role="user",
+            content=(
+                "Trouve un créneau le 2026-10-15 pour Jean Dupont "
+                "(jean.dupont@email.com)."
+            ),
+        ),
+        AgentConversationMessage(
+            role="assistant",
+            content="Les créneaux disponibles sont 09:00 et 11:00.",
+        ),
+    ]
+
+    try:
+        list(
+            service.stream_events(
+                "Je prends 09:00.",
+                conversation_history=conversation_history,
+            )
+        )
+    finally:
+        client.close()
+
+    messages = client.chat.completions.create.call_args.kwargs["messages"]
+    assert messages[1:3] == [message.model_dump() for message in conversation_history]
+    assert messages[3] == {"role": "user", "content": "Je prends 09:00."}

@@ -1,15 +1,17 @@
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 import chromadb
 from anthropic import Anthropic
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from openai import OpenAI
 
 from saas_rh.agent.service import AgentService
-from saas_rh.api.routers import agent, candidates, interviews, rag, system
+from saas_rh.api.routers import agent, candidates, interviews, pages, rag, system
 from saas_rh.candidates.service import CandidateParserService
 from saas_rh.interviews.repository import InterviewScheduleRepository
 from saas_rh.interviews.service import InterviewService
@@ -98,6 +100,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_STATIC_DIR = Path(__file__).parent / "web" / "static"
+app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
+
+app.include_router(pages.router)
 app.include_router(system.router)
 
 app.include_router(candidates.router)
