@@ -25,7 +25,7 @@ Les clés et réglages locaux sont chargés depuis l’environnement ou le `.env
 
 ## RAG
 
-`RAGService` indexe les politiques de `data/rag/mock_data.py` dans une collection ChromaDB persistante avec des identifiants stables et `upsert`, puis recherche les passages utiles et demande au LLM une réponse limitée à ce contexte. La réponse `RagAskResponse` contient le texte et les sources retrouvées. Les politiques sont indexées à la première question ; le dossier `.chroma/` est local et ignoré par Git. Le premier indexage peut télécharger le modèle d’embedding par défaut de ChromaDB.
+`RAGService` indexe les politiques de `data/rag/mock_data.py` au démarrage de l’application dans une collection ChromaDB persistante avec des identifiants stables et `upsert`, puis recherche les passages utiles et demande au LLM une réponse limitée à ce contexte. La réponse `RagAskResponse` contient le texte et les sources retrouvées. Le dossier `.chroma/` est local et ignoré par Git. Le premier indexage peut télécharger le modèle d’embedding par défaut de ChromaDB.
 
 Conserver les sources avec chaque passage jusqu’à la réponse HTTP. Si le contexte ne permet pas de répondre, l’assistant doit le dire et ne pas inventer de politique. Tester cette règle avec une question couverte et une question absente des politiques.
 

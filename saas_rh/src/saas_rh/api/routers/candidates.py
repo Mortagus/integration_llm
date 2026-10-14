@@ -46,8 +46,7 @@ def parse_candidate(
             detail="Fournissez exactement un CV texte ou un fichier CV.",
         )
 
-    if has_file:
-        assert cv_file is not None
+    if cv_file is not None:
         try:
             pdf_content = cv_file.file.read(MAX_PDF_BYTES + 1)
             if len(pdf_content) > MAX_PDF_BYTES:
@@ -67,7 +66,11 @@ def parse_candidate(
                 detail=str(error),
             ) from error
 
-    assert cv_text is not None
+    if cv_text is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Fournissez exactement un CV texte ou un fichier CV.",
+        )
     try:
         return parser.parse_candidate(cv_text.strip())
     except CandidateModelsUnavailableError as error:

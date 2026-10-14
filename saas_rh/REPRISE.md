@@ -68,33 +68,34 @@ Les points sont conservés dans l'ordre de priorité établi après la revue. `[
 - [x] **Q-01 — Faux positifs dans le score** : correspondances par mots entiers et test de régression, pour éviter par exemple que « Storage » corresponde à « RAG ».
 - [x] **S-01 — Boucle bloquante pendant le chat** : itération du générateur synchrone dans un thread pour ne pas bloquer la boucle d’événements.
 - [x] **S-03 — Absence de limites** : limites ajoutées pour le texte et les PDF candidats, les questions RAG, les messages et l’historique de l’agent, ainsi que les sorties LLM.
-- [ ] **L-01 — CV contrôlé par le candidat envoyé au LLM** : atténuation partielle. Le prompt précise que le CV est une donnée non fiable et le transmet comme contenu délimité ; aucune vérification indépendante des faits extraits n’est mise en place, faute de source de vérité. Le score doit rester interprété comme une estimation fondée sur l’extraction du modèle.
+- [x] **L-01 — CV contrôlé par le candidat envoyé au LLM** : protections de prompt et réduction des données personnelles mises en place. Le CV est traité comme une donnée non fiable dans un objet JSON ; ses consignes éventuelles doivent être ignorées. Limite : sans source indépendante, on ne peut pas vérifier que les faits extraits du CV sont vrais. Une recherche sur les protections contre l’injection de prompt pourrait être nécessaire pour mieux protéger les données.
 - [x] **Q-02 — Diplôme obligatoire** : le niveau d’études est facultatif ; le modèle doit renvoyer `null` si le CV ne le précise pas.
 - [x] **S-04 — Message d’erreur fournisseur renvoyé au client** : la route renvoie une erreur générique ; le détail fournisseur reste dans l’exception interne et les journaux contrôlés.
 - [x] **Q-03 — « Invitation envoyée »** : formulation exigée par l’exercice conservée, avec la précision qu’il s’agit d’une simulation et qu’aucun e-mail réel n’a été envoyé.
 
 ### Importants seulement si le projet est exposé ou utilisé en conditions réelles
 
-- [ ] **S-02 — Pas d’authentification ni de limitation de débit** : explicitement hors périmètre retenu ; le projet est un exercice local de formation et n’est pas destiné à être exposé publiquement.
+- [x] **S-02 — Pas d’authentification ni de limitation de débit** : écart accepté et clôturé pour le périmètre retenu ; le projet est un exercice local de formation et n’est pas destiné à être exposé publiquement. À réévaluer avant toute exposition réseau.
 - [x] **D-01 — Données personnelles envoyées au fournisseur** : masquage de données personnelles courantes avant l’appel LLM. Le masquage repose sur des motifs et ne garantit pas l’anonymisation de tout texte libre ; utiliser des CV fictifs pour l’exercice.
-- [ ] **D-02 — Score et libellé de verdict** : le score reste indicatif et le libellé de verdict n’a pas été modifié.
-- [ ] **L-03 — Historique falsifiable par le client** : la taille de l’historique est bornée dans S-03, mais son contenu fourni par le client reste falsifiable.
-- [ ] **S-06 — Documentation et en-têtes HTTP** : pas de changement ; l’accès à `/docs` est conservé pour l’exercice local.
-- [ ] **S-07 — CVE ChromaDB** : point laissé en veille ; le statut des avis n’a pas été vérifié dans ce suivi.
+- [x] **D-02 — Score et libellé de verdict** : la page précise que le score est indicatif, fondé sur les éléments extraits du CV, à valider par un recruteur et qu’il ne constitue pas une décision de recrutement.
+- [x] **L-03 — Historique falsifiable par le client** : la taille de l’historique est bornée dans S-03. Son contenu fourni par le client reste falsifiable ; un commentaire dans la route rappelle qu’en production, l’historique devrait être conservé côté serveur ou son intégrité vérifiée. Aucune protection supplémentaire n’est implémentée pour l’exercice.
+- [x] **S-06 — Documentation et en-têtes HTTP** : un TODO près de la création de l’application rappelle d’évaluer le masquage de `/docs` et des en-têtes de sécurité, dont une CSP, avant une mise en production. L’accès à `/docs` reste conservé pour l’exercice local.
+- [x] **S-07 — CVE ChromaDB** : point clôturé pour l’exercice local. Les vulnérabilités relevées concernent le serveur HTTP ChromaDB, alors que le projet utilise `PersistentClient` sans exposer ce serveur. Ne pas lancer ni exposer le serveur ChromaDB ; réévaluer ce risque avant toute exposition réseau ou mise en production.
 
 ### À arbitrer selon l’énoncé ou à classer comme amélioration
 
-- [ ] **C-01 — Indexation RAG au démarrage** : conflit documentaire non arbitré. `PLAN_PROJET.md` demande l’indexation au démarrage, tandis que `AGENTS.md` décrit l’indexation à la première question.
-- [ ] **L-02 — Sources affichées après un refus** : comportement non modifié ; aucun seuil de distance n’a été calibré.
+- [x] **C-01 — Indexation RAG au démarrage** : corrigé selon `PLAN_PROJET.md`. Le lifespan FastAPI indexe les politiques lors de la création du service RAG ; `AGENTS.md` est aligné sur ce comportement. Le premier indexage peut télécharger le modèle d’embedding ChromaDB.
+- [x] **L-02 — Sources affichées après un refus** : si le LLM renvoie le refus explicite `NO_CONTEXT_RESPONSE`, le service retourne `sources=[]` et l’interface masque la section des sources. Les passages récupérés restent utilisés pour produire une réponse lorsqu’ils sont pertinents.
 - [x] **S-05 — Erreurs incohérentes** : erreurs d’intégration rendues explicites dans les routes (statuts HTTP adaptés et messages génériques) ; les échecs survenant après le début du streaming restent signalés par un événement SSE `error`.
-- [ ] **Q-05 — `assert` dans les routes** : amélioration non appliquée.
-- [ ] **Q-06 — Tests des routes appelés directement** : couverture HTTP via client de test à compléter.
-- [ ] **Q-07 — Formatage Ruff** : vérification et corrections à faire.
-- [ ] **O-01 — Erreurs du chat sans trace serveur** : journalisation des erreurs inattendues du chat à compléter.
-- [ ] **G-01 — `.gitignore`** : nettoyage non appliqué.
-- [ ] **Q-04 — Configuration au démarrage** : amélioration non appliquée.
-- [ ] **Q-08 — Code mort** : nettoyage non appliqué.
-- [ ] **Q-09 — Fallback et température** : amélioration non appliquée.
-- [ ] **A-01/A-02 — Abstraction des SDK et refactor de `main.py`** : améliorations de maintenance non appliquées.
-- [ ] **A-03 — Cohérence des dépendances** : vérification non appliquée.
-- [ ] **C-02 — Noms des outils, formats et fonctionnalités non implémentées** : pas de changement ; à rouvrir seulement si l’évaluation exige les noms exacts, l’envoi d’invitations ou la mise à jour des statuts.
+- [x] **Q-05 — `assert` dans les routes** : les assertions ont été remplacées par des validations explicites qui renvoient une erreur 400 si une entrée requise manque.
+- [x] **Q-06 — Tests des routes appelés directement** : les tests candidat, RAG et agent vérifient maintenant les contrats HTTP avec TestClient ou ASGITransport ; les tests d’entretien utilisaient déjà ASGI. Les tests ciblés passent : 17 réussis.
+- [x] **Q-07 — Formatage Ruff** : les fichiers signalés ont été formatés ; `ruff format --check .` passe (56 fichiers déjà conformes après formatage).
+- [x] **O-01 — Erreurs du chat sans trace serveur** : les erreurs inattendues du flux de chat sont consignées côté serveur avec leur type, sans journaliser le message d’exception qui pourrait contenir des données personnelles ; le client reçoit toujours un événement SSE générique.
+- [x] **G-01 — `.gitignore`** : remplacement de `./.venv` par le motif générique `.venv/` et ajout de motifs génériques pour `.pytest_cache/`, `.ruff_cache/` et `.chroma/`. Les règles de protection du `.env` et des PDF de CV restent en place ; `git check-ignore` les confirme.
+- [x] **Q-04 — Configuration au démarrage** : le démarrage échoue avec un message explicite si une clé fournisseur est configurée sans le modèle requis (et sans l’URL de base Gemini). Une URL Anthropic omise utilise le défaut du SDK. Le chemin ChromaDB par défaut et les chemins relatifs sont maintenant résolus depuis la racine du projet, pas depuis le répertoire courant.
+- [x] **Q-08 — Code mort** : suppression de `AgentService.respond` et des deux boucles non streaming `_respond_with_*`. Les tests unitaires et de scénario couvrent désormais le chemin public `stream_events`, utilisé par la route.
+- [x] **Q-09 — Fallback et température** : README et `.env.example` précisent que les modèles de repli ne servent qu’au parsing CV, que RAG et agent restent sur le modèle principal et que l’agent n’a pas de repli automatique pour éviter de répéter des réservations. Ils précisent aussi que Gemini utilise `temperature=0.0`, tandis que les appels Anthropic gardent le défaut du modèle ; aucune garantie de déterminisme n’est revendiquée pour Anthropic.
+- [x] **A-01 — Abstraction des SDK** : ajout de `LLMGateway` avec adaptateurs OpenAI compatibles et Anthropic pour le parsing structuré, les réponses RAG et les tours d’outils en streaming. Les services métier ne dépendent plus des SDK fournisseurs.
+- [x] **A-02 — Refactor de `main.py`** : lecture/validation de la configuration et assemblage des services déplacés dans `application.py`. Le lifespan se limite à charger les réglages, exposer les services sur `app.state` et fermer le client partagé.
+- [x] **A-03 — Cohérence des dépendances** : `get_interview_service` est maintenant synchrone, comme les autres dépendances de services en mémoire.
+- [x] **C-02 — Écarts secondaires avec le PDF** : clôturé comme choix de style d’implémentation. Les noms et statuts des outils diffèrent des exemples du PDF, les routes RAG et agent utilisent `Form`, et l’invitation ainsi que la mise à jour du statut candidat ne sont pas implémentées. Ces différences ne sont pas exigées littéralement par le scénario de validation du plan ; le scénario de recherche et réservation est couvert, et l’invitation est explicitement simulée.

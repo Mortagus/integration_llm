@@ -43,7 +43,7 @@ Pour lancer l'application, crée le fichier local `.env` à partir du modèle et
 cp .env.example .env
 ```
 
-Dans `.env`, définis `LLM_PROVIDER` à `gemini` ou `anthropic`, puis renseigne la clé et le nom de modèle correspondants. Les clés ne doivent jamais être ajoutées à Git. Pour Anthropic, `ANTHROPIC_WORKSPACE_ID` est facultatif et ne sert que si la clé l'exige.
+Dans `.env`, définis `LLM_PROVIDER` à `gemini` ou `anthropic`, puis renseigne la clé et le nom de modèle correspondants. Avec une clé Gemini, l'URL de base est également requise ; si une clé est présente mais qu'un réglage requis manque, l'application échoue au démarrage avec le nom de la variable manquante. Les clés ne doivent jamais être ajoutées à Git. Pour Anthropic, `ANTHROPIC_WORKSPACE_ID` est facultatif et ne sert que si la clé l'exige ; `ANTHROPIC_BASE_URL` peut rester vide pour utiliser le défaut du SDK.
 
 Si le dépôt cloné ne contient pas de sous-dossier `saas_rh` parce que ce projet a été cloné directement, exécute les commandes depuis la racine du clone et omets `cd saas_rh`.
 
@@ -83,10 +83,12 @@ Le test fonctionnel de parsing envoie les deux CV exemples et, si le fichier loc
 
 ## Données et persistance
 
-Les politiques RH, les CV exemples et l'agenda fictif sont dans `src/saas_rh/data/`. ChromaDB persiste son index dans `.chroma/` par défaut ; `CHROMA_DB_PATH` permet de changer ce chemin. Au premier usage, ChromaDB peut télécharger son modèle d'embedding local. Les réservations d'entretien ne sont pas persistées et l'agenda est réinitialisé au redémarrage du serveur.
+Les politiques RH, les CV exemples et l'agenda fictif sont dans `src/saas_rh/data/`. ChromaDB persiste son index dans `.chroma/` à la racine du projet par défaut ; `CHROMA_DB_PATH` permet de changer ce chemin (un chemin relatif est résolu depuis cette même racine). Au premier usage, ChromaDB peut télécharger son modèle d'embedding local. Les réservations d'entretien ne sont pas persistées et l'agenda est réinitialisé au redémarrage du serveur.
 
 ## Configuration
 
-Les variables disponibles sont documentées dans [`.env.example`](.env.example). Le modèle principal est défini par `GEMINI_MODEL` ou `ANTHROPIC_MODEL`. Des modèles de repli facultatifs peuvent être listés, séparés par des virgules, dans `GEMINI_FALLBACK_MODELS` ou `ANTHROPIC_FALLBACK_MODELS`.
+Les variables disponibles sont documentées dans [`.env.example`](.env.example). Le modèle principal est défini par `GEMINI_MODEL` ou `ANTHROPIC_MODEL`. Des modèles de repli facultatifs peuvent être listés, séparés par des virgules, dans `GEMINI_FALLBACK_MODELS` ou `ANTHROPIC_FALLBACK_MODELS` ; ils ne sont utilisés que pour le parsing des CV. Le RAG et l'agent utilisent uniquement le modèle principal. Le repli de l'agent n'est pas activé, car une reprise automatique autour d'outils qui modifient l'agenda demanderait une stratégie spécifique pour éviter de répéter une réservation.
+
+Les appels Gemini compatibles OpenAI fixent `temperature=0.0`. Les appels Anthropic ne transmettent pas ce paramètre : ils utilisent le comportement par défaut du modèle. Leurs résultats ne sont donc pas configurés pour être déterministes ; le paramètre n'a pas été ajouté sans vérifier sa compatibilité avec les modèles configurés.
 
 Pour poursuivre le travail, consulter [`PLAN_PROJET.md`](PLAN_PROJET.md) et [`REPRISE.md`](REPRISE.md).

@@ -10,6 +10,7 @@ from saas_rh.candidates.service import (
     CandidateParserService,
 )
 from saas_rh.data.candidates.mock_data import CANDIDAT_EXEMPLE_1
+from saas_rh.llm.gateway import LLMProviderStatusError, OpenAICompatibleGateway
 
 
 def make_status_error(
@@ -44,7 +45,7 @@ def test_candidate_parser_falls_back_after_temporary_model_error() -> None:
     )
     parse_mock = Mock(side_effect=[make_status_error(503), parsed_response])
     service = CandidateParserService(
-        client=make_client(parse_mock),
+        gateway=OpenAICompatibleGateway(make_client(parse_mock)),
         model_name="gemini-model-surcharge",
         fallback_model_names=["gemini-model-disponible"],
     )
@@ -62,12 +63,12 @@ def test_candidate_parser_falls_back_after_temporary_model_error() -> None:
 def test_candidate_parser_does_not_fallback_on_bad_request() -> None:
     parse_mock = Mock(side_effect=make_status_error(400))
     service = CandidateParserService(
-        client=make_client(parse_mock),
+        gateway=OpenAICompatibleGateway(make_client(parse_mock)),
         model_name="gemini-model-configure",
         fallback_model_names=["gemini-model-disponible"],
     )
 
-    with pytest.raises(APIStatusError):
+    with pytest.raises(LLMProviderStatusError):
         service.parse_candidate(CANDIDAT_EXEMPLE_1)
 
     assert parse_mock.call_count == 1
@@ -79,7 +80,7 @@ def test_candidate_parser_rejects_missing_structured_output() -> None:
     )
     parse_mock = Mock(return_value=response_without_parsed_candidate)
     service = CandidateParserService(
-        client=make_client(parse_mock),
+        gateway=OpenAICompatibleGateway(make_client(parse_mock)),
         model_name="gemini-model-configure",
     )
 
@@ -97,7 +98,7 @@ def test_candidate_parser_reports_when_all_models_are_unavailable() -> None:
         ]
     )
     service = CandidateParserService(
-        client=make_client(parse_mock),
+        gateway=OpenAICompatibleGateway(make_client(parse_mock)),
         model_name="gemini-model-sature-1",
         fallback_model_names=["gemini-model-sature-2"],
     )

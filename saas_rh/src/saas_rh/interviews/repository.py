@@ -13,8 +13,7 @@ class InterviewScheduleRepository:
     ) -> None:
         schedule = AGENDA_RECRUTEUR if initial_schedule is None else initial_schedule
         self._available_slots = {
-            interview_date: list(slots)
-            for interview_date, slots in schedule.items()
+            interview_date: list(slots) for interview_date, slots in schedule.items()
         }
         self._lock = Lock()
 

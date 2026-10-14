@@ -27,6 +27,4 @@ async def get_interviews_slots(
     The mock schedule is not candidate-specific; candidate_id remains required
     by the existing endpoint contract but cannot be resolved to a candidate yet.
     """
-    return interview_service.search_slots(
-        InterviewSlotSearchInput(date=interview_date)
-    )
+    return interview_service.search_slots(InterviewSlotSearchInput(date=interview_date))

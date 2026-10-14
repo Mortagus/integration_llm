@@ -10,6 +10,7 @@ from saas_rh.agent.service import AgentService
 from saas_rh.interviews.repository import InterviewScheduleRepository
 from saas_rh.interviews.schemas import InterviewSlotSearchInput
 from saas_rh.interviews.service import InterviewService
+from saas_rh.llm.gateway import AnthropicGateway, OpenAICompatibleGateway
 
 USER_REQUEST = (
     "Trouve-moi un créneau le 2026-10-15 pour réserver un entretien avec "
@@ -22,17 +23,55 @@ CONFIRMATION = (
 )
 
 
+class FakeOpenAIStream:
+    def __init__(self, chunk):
+        self.chunk = chunk
+
+    def __enter__(self):
+        return iter([self.chunk])
+
+    def __exit__(self, *_args):
+        return None
+
+
+class FakeAnthropicStream:
+    def __init__(self, response):
+        self.response = response
+        self.text_stream = iter(
+            [block.text for block in response.content if block.type == "text"]
+        )
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return None
+
+    def get_final_message(self):
+        return self.response
+
+
 def _openai_response(content: str | None, tool_call=None):
-    return SimpleNamespace(
+    calls = [] if tool_call is None else [tool_call]
+    chunk = SimpleNamespace(
         choices=[
             SimpleNamespace(
-                message=SimpleNamespace(
+                delta=SimpleNamespace(
                     content=content,
-                    tool_calls=[] if tool_call is None else [tool_call],
+                    tool_calls=[
+                        SimpleNamespace(
+                            index=0,
+                            id=call.id,
+                            function=call.function,
+                        )
+                        for call in calls
+                    ]
+                    or None,
                 )
             )
         ]
     )
+    return FakeOpenAIStream(chunk)
 
 
 def _openai_tool_call(call_id: str, name: str, arguments: dict[str, str]):
@@ -46,7 +85,7 @@ def _openai_tool_call(call_id: str, name: str, arguments: dict[str, str]):
 
 
 def _anthropic_response(block):
-    return SimpleNamespace(content=[block])
+    return FakeAnthropicStream(SimpleNamespace(content=[block]))
 
 
 def _anthropic_tool_use(
@@ -91,32 +130,35 @@ def test_openai_agent_searches_and_reserves_before_confirming() -> None:
         ]
     )
     interview_service = InterviewService(InterviewScheduleRepository())
-    agent_service = AgentService(client, "modele-test", interview_service)
+    agent_service = AgentService(
+        OpenAICompatibleGateway(client), "modele-test", interview_service
+    )
 
     try:
-        answer = agent_service.respond(USER_REQUEST)
+        events = list(agent_service.stream_events(USER_REQUEST))
     finally:
         client.close()
 
     calls = client.chat.completions.create.call_args_list
-    assert answer == CONFIRMATION
+    assert "".join(event.data.get("text", "") for event in events) == CONFIRMATION
     assert calls[0].kwargs["messages"][1]["content"] == USER_REQUEST
     final_call_messages = calls[2].kwargs["messages"]
     assert final_call_messages[-3]["role"] == "tool"
     assert json.loads(final_call_messages[-3]["content"]) == {
         "available_slots": ["09:00", "11:00", "14:30", "16:00"]
     }
-    assert json.loads(final_call_messages[-1]["content"])["status"] == (
-        "SUCCEEDED"
+    assert json.loads(final_call_messages[-1]["content"])["status"] == ("SUCCEEDED")
+    assert (
+        "09:00"
+        not in interview_service.search_slots(
+            InterviewSlotSearchInput(date=date(2026, 10, 15))
+        ).available_slots
     )
-    assert "09:00" not in interview_service.search_slots(
-        InterviewSlotSearchInput(date=date(2026, 10, 15))
-    ).available_slots
 
 
 def test_anthropic_agent_searches_and_reserves_before_confirming() -> None:
     client = Anthropic(api_key="test-api-key")
-    client.messages.create = Mock(
+    client.messages.stream = Mock(
         side_effect=[
             _anthropic_response(
                 _anthropic_tool_use(
@@ -141,15 +183,17 @@ def test_anthropic_agent_searches_and_reserves_before_confirming() -> None:
         ]
     )
     interview_service = InterviewService(InterviewScheduleRepository())
-    agent_service = AgentService(client, "modele-test", interview_service)
+    agent_service = AgentService(
+        AnthropicGateway(client), "modele-test", interview_service
+    )
 
     try:
-        answer = agent_service.respond(USER_REQUEST)
+        events = list(agent_service.stream_events(USER_REQUEST))
     finally:
         client.close()
 
-    calls = client.messages.create.call_args_list
-    assert answer == CONFIRMATION
+    calls = client.messages.stream.call_args_list
+    assert "".join(event.data.get("text", "") for event in events) == CONFIRMATION
     assert calls[0].kwargs["messages"][0]["content"] == USER_REQUEST
     final_call_messages = calls[2].kwargs["messages"]
     search_result = final_call_messages[-3]["content"][0]
@@ -162,6 +206,9 @@ def test_anthropic_agent_searches_and_reserves_before_confirming() -> None:
     ]
     reservation_result = final_call_messages[-1]["content"][0]
     assert json.loads(reservation_result["content"])["status"] == "SUCCEEDED"
-    assert "09:00" not in interview_service.search_slots(
-        InterviewSlotSearchInput(date=date(2026, 10, 15))
-    ).available_slots
+    assert (
+        "09:00"
+        not in interview_service.search_slots(
+            InterviewSlotSearchInput(date=date(2026, 10, 15))
+        ).available_slots
+    )

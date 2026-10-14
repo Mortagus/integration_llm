@@ -1,13 +1,15 @@
+import asyncio
 import json
 from types import SimpleNamespace
+from unittest.mock import Mock
 
-import anyio
-import pytest
-from fastapi import HTTPException
-from fastapi.sse import ServerSentEvent
+from fastapi import FastAPI
+from httpx2 import ASGITransport, AsyncClient
 
 from saas_rh.agent.schemas import AgentConversationMessage
-from saas_rh.api.routers.agent import agent_chat
+from saas_rh.agent.service import AgentService
+from saas_rh.api.dependencies import get_agent_service
+from saas_rh.api.routers.agent import router
 
 
 class FakeAgentService:
@@ -22,38 +24,35 @@ class FakeAgentService:
         yield from self.events
 
 
-async def _collect_agent_events(
-    agent_service,
-    user_prompt: str,
-    conversation_history_json: str | None = None,
-):
-    response = await agent_chat(
-        agent_service=agent_service,
-        user_prompt=user_prompt,
-        conversation_history_json=conversation_history_json,
-    )
+def make_app(agent_service: object) -> FastAPI:
+    app = FastAPI()
+    app.include_router(router)
+    app.dependency_overrides[get_agent_service] = lambda: agent_service
+    return app
+
+
+async def post_form(app: FastAPI, data: dict[str, str]):
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        return await client.post("/api/agent/chat", data=data)
+
+
+def parse_sse_events(response_text: str) -> list[SimpleNamespace]:
     events = []
-    async for chunk in response.body_iterator:
-        if isinstance(chunk, ServerSentEvent):
-            events.append(SimpleNamespace(event=chunk.event, data=chunk.data))
-            continue
-        content = chunk.decode() if isinstance(chunk, bytes) else chunk
-        for record in content.replace("\r\n", "\n").split("\n\n"):
-            fields = dict(
-                line.split(": ", maxsplit=1)
-                for line in record.splitlines()
-                if ": " in line
+    for record in response_text.replace("\r\n", "\n").split("\n\n"):
+        fields = dict(
+            line.split(": ", maxsplit=1) for line in record.splitlines() if ": " in line
+        )
+        if "event" in fields and "data" in fields:
+            events.append(
+                SimpleNamespace(event=fields["event"], data=json.loads(fields["data"]))
             )
-            if "event" in fields and "data" in fields:
-                events.append(
-                    SimpleNamespace(
-                        event=fields["event"], data=json.loads(fields["data"])
-                    )
-                )
     return events
 
 
-def test_agent_chat_streams_text_tools_results_and_completion() -> None:
+def test_agent_chat_streams_events_over_http() -> None:
     service = FakeAgentService(
         [
             SimpleNamespace(event_type="text", data={"text": "Je recherche."}),
@@ -68,9 +67,14 @@ def test_agent_chat_streams_text_tools_results_and_completion() -> None:
             SimpleNamespace(event_type="done", data={"status": "completed"}),
         ]
     )
-    events = anyio.run(_collect_agent_events, service, "Trouve un créneau.")
 
-    assert [(event.event, event.data) for event in events] == [
+    response = asyncio.run(
+        post_form(make_app(service), {"user_prompt": "Trouve un créneau."})
+    )
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/event-stream")
+    assert [(event.event, event.data) for event in parse_sse_events(response.text)] == [
         ("text", {"text": "Je recherche."}),
         ("tool_call", {"name": "search_interview_slots"}),
         ("tool_result", {"name": "search_interview_slots", "result": ["09:00"]}),
@@ -80,48 +84,69 @@ def test_agent_chat_streams_text_tools_results_and_completion() -> None:
     assert service.conversation_history == []
 
 
-def test_agent_chat_passes_validated_conversation_history_to_service() -> None:
+def test_agent_chat_passes_validated_history_over_http() -> None:
     service = FakeAgentService(
         [SimpleNamespace(event_type="done", data={"status": "completed"})]
     )
     history = [
-        {
-            "role": "user",
-            "content": "Recherche le 2026-10-15 pour Jean Dupont.",
-        },
+        {"role": "user", "content": "Recherche le 2026-10-15 pour Jean Dupont."},
         {"role": "assistant", "content": "Les créneaux sont 09:00 et 11:00."},
     ]
 
-    anyio.run(
-        _collect_agent_events,
-        service,
-        "Je prends 09:00.",
-        json.dumps(history),
+    response = asyncio.run(
+        post_form(
+            make_app(service),
+            {
+                "user_prompt": "Je prends 09:00.",
+                "conversation_history_json": json.dumps(history),
+            },
+        )
     )
 
+    assert response.status_code == 200
     assert service.conversation_history == [
         AgentConversationMessage.model_validate(message) for message in history
     ]
 
 
-def test_agent_chat_returns_error_and_done_events_when_service_fails() -> None:
+def test_agent_chat_returns_error_event_when_service_fails_over_http() -> None:
     class FailingAgentService:
         def stream_events(self, user_prompt: str, conversation_history=()):
             raise RuntimeError("Erreur simulée")
             yield  # pragma: no cover
 
-    events = anyio.run(
-        _collect_agent_events, FailingAgentService(), "Trouve un créneau."
+    response = asyncio.run(
+        post_form(
+            make_app(FailingAgentService()),
+            {"user_prompt": "Trouve un créneau."},
+        )
     )
 
-    assert [(event.event, event.data) for event in events] == [
+    assert response.status_code == 200
+    assert [(event.event, event.data) for event in parse_sse_events(response.text)] == [
         ("error", {"message": "Une erreur est survenue pendant le traitement."}),
         ("done", {"status": "error"}),
     ]
 
 
-def test_agent_chat_rejects_blank_prompt_with_bad_request() -> None:
-    with pytest.raises(HTTPException) as error_info:
-        anyio.run(_collect_agent_events, FakeAgentService(), "   ")
+def test_agent_chat_rejects_blank_prompt_over_http() -> None:
+    response = asyncio.run(
+        post_form(make_app(Mock(spec=AgentService)), {"user_prompt": "   "})
+    )
 
-    assert error_info.value.status_code == 400
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "Le message utilisateur ne peut pas être vide."
+    }
+
+
+def test_agent_chat_rejects_invalid_history_over_http() -> None:
+    response = asyncio.run(
+        post_form(
+            make_app(Mock(spec=AgentService)),
+            {"user_prompt": "Bonjour", "conversation_history_json": "not-json"},
+        )
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "L'historique de conversation est invalide."}

@@ -27,28 +27,20 @@ async def _get_response(params: dict[str, object]):
 
 
 def test_get_interviews_slots_returns_available_slots() -> None:
-    response = asyncio.run(
-        _get_response({"candidate_id": 42, "date": "2026-10-15"})
-    )
+    response = asyncio.run(_get_response({"candidate_id": 42, "date": "2026-10-15"}))
 
     assert response.status_code == 200
-    assert response.json() == {
-        "available_slots": ["09:00", "11:00", "14:30", "16:00"]
-    }
+    assert response.json() == {"available_slots": ["09:00", "11:00", "14:30", "16:00"]}
 
 
 def test_get_interviews_slots_returns_empty_list_when_no_slots_exist() -> None:
-    response = asyncio.run(
-        _get_response({"candidate_id": 42, "date": "2026-10-17"})
-    )
+    response = asyncio.run(_get_response({"candidate_id": 42, "date": "2026-10-17"}))
 
     assert response.status_code == 200
     assert response.json() == {"available_slots": []}
 
 
 def test_get_interviews_slots_requires_valid_candidate_id_and_date() -> None:
-    response = asyncio.run(
-        _get_response({"candidate_id": 0, "date": "not-a-date"})
-    )
+    response = asyncio.run(_get_response({"candidate_id": 0, "date": "not-a-date"}))
 
     assert response.status_code == 422

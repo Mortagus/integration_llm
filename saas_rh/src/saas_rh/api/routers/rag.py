@@ -22,21 +22,16 @@ def ask_rag(
     rag_service: Annotated[RAGService, Depends(get_rag_service)],
     question: Annotated[str | None, Form(max_length=1_000)] = None,
 ) -> RagAskResponse:
-    has_question = question is not None and bool(question.strip())
-
-    if not has_question:
+    if question is None or not question.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Veuillez envoyer une question.",
         )
 
-    assert question is not None
     try:
         return rag_service.answer_question(question.strip())
     except (OpenAIAPIError, AnthropicAPIError, ChromaError) as error:
-        logger.error(
-            "Échec d'une intégration RAG : type=%s", type(error).__name__
-        )
+        logger.error("Échec d'une intégration RAG : type=%s", type(error).__name__)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Le service RH est momentanément indisponible.",

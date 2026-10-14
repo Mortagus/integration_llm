@@ -1,5 +1,6 @@
 const views = [...document.querySelectorAll(".page-view")];
 const backHomeButton = document.querySelector("#back-home");
+const NO_CONTEXT_RESPONSE = "Je ne trouve pas cette information dans les politiques RH fournies.";
 
 function showView(viewName, updateLocation = true) {
   const selectedView = document.querySelector(`#view-${viewName}`);
@@ -119,6 +120,13 @@ function renderCandidateResult(result, target) {
   }
   summary.append(facts, score);
   target.append(summary);
+  target.append(
+    createElement(
+      "p",
+      "score-disclaimer",
+      "Score indicatif, calculé à partir des éléments extraits du CV. À valider par un recruteur ; il ne constitue pas une décision de recrutement.",
+    ),
+  );
 
   const skillsSection = createElement("section", "result-section");
   skillsSection.append(createElement("h3", "", "Compétences détectées"));
@@ -216,22 +224,24 @@ ragForm.addEventListener("submit", async (event) => {
     ragResult.append(createElement("h2", "result-title", "Réponse de l’assistant"));
     ragResult.append(createElement("p", "answer-copy", result.content));
 
-    const sources = createElement("section", "result-section");
-    sources.append(createElement("h3", "", "Sources consultées"));
-    if (result.sources?.length) {
-      const sourceList = createElement("div", "source-list");
-      for (const source of result.sources) {
-        const card = createElement("article", "source-card");
-        card.append(createElement("strong", "", source.title));
-        card.append(createElement("p", "", source.excerpt));
-        card.append(createElement("span", "source-id", source.id));
-        sourceList.append(card);
+    if (result.content !== NO_CONTEXT_RESPONSE) {
+      const sources = createElement("section", "result-section");
+      sources.append(createElement("h3", "", "Sources consultées"));
+      if (result.sources?.length) {
+        const sourceList = createElement("div", "source-list");
+        for (const source of result.sources) {
+          const card = createElement("article", "source-card");
+          card.append(createElement("strong", "", source.title));
+          card.append(createElement("p", "", source.excerpt));
+          card.append(createElement("span", "source-id", source.id));
+          sourceList.append(card);
+        }
+        sources.append(sourceList);
+      } else {
+        sources.append(createElement("p", "empty-state", "Aucune source n’a été renvoyée."));
       }
-      sources.append(sourceList);
-    } else {
-      sources.append(createElement("p", "empty-state", "Aucune source n’a été renvoyée."));
+      ragResult.append(sources);
     }
-    ragResult.append(sources);
   } catch (error) {
     showResultError(ragResult, error.message);
   } finally {

@@ -4,6 +4,7 @@ from unittest.mock import Mock
 from anthropic import Anthropic
 
 from saas_rh.data.rag.mock_data import POLITIQUES_RH
+from saas_rh.llm.gateway import AnthropicGateway
 from saas_rh.rag.schemas import RagAskResponse, RagSource
 from saas_rh.rag.service import RAGService
 
@@ -11,16 +12,14 @@ from saas_rh.rag.service import RAGService
 def make_service(query_result: dict[str, list[list]]) -> tuple[RAGService, Mock, Mock]:
     collection = Mock()
     collection.query.return_value = query_result
-    llm_client = Mock()
-    llm_client.chat.completions.create.return_value = SimpleNamespace(
-        choices=[SimpleNamespace(message=SimpleNamespace(content="Réponse fondée."))]
-    )
+    llm_gateway = Mock()
+    llm_gateway.complete.return_value = "Réponse fondée."
     service = RAGService(
         collection=collection,
-        llm_client=llm_client,
+        llm_gateway=llm_gateway,
         model_name="modele-test",
     )
-    return service, collection, llm_client
+    return service, collection, llm_gateway
 
 
 def test_index_policies_upserts_policy_text_and_metadata() -> None:
@@ -59,9 +58,7 @@ def test_answer_question_returns_answer_and_cited_sources() -> None:
     collection.query.assert_called_once_with(
         query_texts=["Combien de RTT peut-on placer dans le CET ?"], n_results=2
     )
-    system_prompt = llm_client.chat.completions.create.call_args.kwargs["messages"][0][
-        "content"
-    ]
+    system_prompt = llm_client.complete.call_args.args[1]
     assert "uniquement" in system_prompt
     assert "rh_doc_02" in system_prompt
 
@@ -77,10 +74,10 @@ def test_answer_question_abstains_when_collection_has_no_results() -> None:
         content="Je ne trouve pas cette information dans les politiques RH fournies.",
         sources=[],
     )
-    llm_client.chat.completions.create.assert_not_called()
+    llm_client.complete.assert_not_called()
 
 
-def test_answer_question_indexes_policies_only_once_per_service() -> None:
+def test_answer_question_does_not_index_policies() -> None:
     service, collection, _ = make_service(
         {"ids": [[]], "documents": [[]], "metadatas": [[]], "distances": [[]]}
     )
@@ -88,7 +85,7 @@ def test_answer_question_indexes_policies_only_once_per_service() -> None:
     service.answer_question("Question 1")
     service.answer_question("Question 2")
 
-    collection.upsert.assert_called_once()
+    collection.upsert.assert_not_called()
     assert collection.query.call_count == 2
 
 
@@ -105,7 +102,7 @@ def test_answer_question_supports_anthropic_messages_client() -> None:
             content=[SimpleNamespace(type="text", text="Dix jours de RTT. [rh_doc_02]")]
         )
     )
-    service = RAGService(collection, client, "modele-anthropic")
+    service = RAGService(collection, AnthropicGateway(client), "modele-anthropic")
 
     try:
         response = service.answer_question("Combien de RTT ?")

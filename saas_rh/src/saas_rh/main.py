@@ -1,98 +1,31 @@
-import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-import chromadb
-from anthropic import Anthropic
-from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from openai import OpenAI
 
-from saas_rh.agent.service import AgentService
 from saas_rh.api.routers import agent, candidates, interviews, pages, rag, system
-from saas_rh.candidates.service import CandidateParserService
-from saas_rh.interviews.repository import InterviewScheduleRepository
-from saas_rh.interviews.service import InterviewService
-from saas_rh.rag.service import RAGService
-
-
-def _configured_fallback_models(environment_variable: str) -> tuple[str, ...]:
-    configured_models = os.getenv(environment_variable, "")
-    return tuple(
-        model.strip() for model in configured_models.split(",") if model.strip()
-    )
+from saas_rh.application import build_application_services, load_application_settings
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Create shared application services and close external clients."""
-    load_dotenv()
-    app.state.interview_service = InterviewService(InterviewScheduleRepository())
-    provider = os.getenv("LLM_PROVIDER", "gemini").strip().lower()
-    client: OpenAI | Anthropic | None = None
-
-    if provider == "gemini":
-        api_key = os.getenv("GEMINI_API_KEY")
-        if api_key:
-            client = OpenAI(
-                base_url=os.getenv("GEMINI_BASE_URL", ""),
-                api_key=api_key,
-                max_retries=0,
-            )
-            model_name = os.getenv("GEMINI_MODEL", "")
-            fallback_models = _configured_fallback_models("GEMINI_FALLBACK_MODELS")
-    elif provider == "anthropic":
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        if api_key:
-            workspace_id = os.getenv("ANTHROPIC_WORKSPACE_ID", "").strip()
-            client = Anthropic(
-                base_url=os.getenv("ANTHROPIC_BASE_URL", ""),
-                api_key=api_key,
-                max_retries=0,
-                default_headers=(
-                    {"anthropic-workspace-id": workspace_id} if workspace_id else {}
-                ),
-            )
-            model_name = os.getenv("ANTHROPIC_MODEL", "")
-            fallback_models = _configured_fallback_models("ANTHROPIC_FALLBACK_MODELS")
-    else:
-        raise ValueError("LLM_PROVIDER doit valoir 'gemini' ou 'anthropic'.")
-
-    if client is not None:
-        app.state.agent_service = AgentService(
-            llm_client=client,
-            model_name=model_name,
-            interview_service=app.state.interview_service,
-        )
-        app.state.candidate_parser_service = CandidateParserService(
-            client=client,
-            model_name=model_name,
-            fallback_model_names=fallback_models,
-        )
-        chroma_client = chromadb.PersistentClient(
-            path=os.getenv("CHROMA_DB_PATH", ".chroma")
-        )
-        collection = chroma_client.get_or_create_collection(name="politiques_rh")
-        rag_service = RAGService(
-            collection=collection,
-            llm_client=client,
-            model_name=model_name,
-        )
-        app.state.rag_service = rag_service
-    else:
-        app.state.agent_service = None
-        app.state.candidate_parser_service = None
-        app.state.rag_service = None
-
+    settings = load_application_settings()
+    services = build_application_services(settings)
+    app.state.interview_service = services.interview_service
+    app.state.agent_service = services.agent_service
+    app.state.candidate_parser_service = services.candidate_parser_service
+    app.state.rag_service = services.rag_service
     try:
         yield
     finally:
-        if client is not None:
-            client.close()
+        services.close()
 
 
+# TODO: Avant une mise en production, évaluer le masquage de /docs et l'ajout
+# d'en-têtes de sécurité adaptés, notamment une Content Security Policy (CSP).
 app = FastAPI(
     title="SaaS RH",
     version="0.1.0",

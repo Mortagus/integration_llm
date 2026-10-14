@@ -111,7 +111,10 @@ Les faiblesses se concentrent sur **trois thèmes** :
      ```python
      from fastapi import Security
      from fastapi.security import APIKeyHeader
+
      api_key_header = APIKeyHeader(name="X-API-Key", auto_error=True)
+
+
      def require_api_key(key: str = Security(api_key_header)) -> None:
          if not secrets.compare_digest(key, os.environ["APP_API_KEY"]):
              raise HTTPException(status_code=401)
@@ -152,8 +155,12 @@ Les faiblesses se concentrent sur **trois thèmes** :
 - **Risque :** divulgation d'informations internes (modèles configurés, messages de quota, parfois identifiants de workspace ou d'organisation) — OWASP A05 (mauvaise configuration) et A09.
 - **Correction :** renvoyer au client un message générique (« Le service d'analyse est momentanément indisponible. ») et journaliser le détail côté serveur (sans prompt). Exemple :
   ```python
-  logger.error("Parsing indisponible: modèle=%s statut=%s", error.model_name, error.status_code)
-  raise HTTPException(503, "Le service d'analyse est momentanément indisponible.") from error
+  logger.error(
+      "Parsing indisponible: modèle=%s statut=%s", error.model_name, error.status_code
+  )
+  raise HTTPException(
+      503, "Le service d'analyse est momentanément indisponible."
+  ) from error
   ```
   Si tu veux garder le détail en développement, conditionne-le à une variable `APP_DEBUG=1`.
 
@@ -306,6 +313,8 @@ Les faiblesses se concentrent sur **trois thèmes** :
      ```python
      EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
      PHONE = re.compile(r"(?:\+?\d[\s.-]?){9,14}\d")
+
+
      def redact_pii(text: str) -> str:
          return PHONE.sub("[TÉLÉPHONE]", EMAIL.sub("[EMAIL]", text))
      ```

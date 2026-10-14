@@ -13,9 +13,13 @@ from dotenv import load_dotenv
 
 BASE_URL = os.getenv("SAAS_RH_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
 STARTUP_TIMEOUT_SECONDS = 30
-RTT_AND_CET_QUESTION = "Combien de jours de RTT ai-je droit et puis-je les placer sur un CET ?"
+RTT_AND_CET_QUESTION = (
+    "Combien de jours de RTT ai-je droit et puis-je les placer sur un CET ?"
+)
 BIRTH_BONUS_QUESTION = "Quelle est la prime de naissance accordée par l'entreprise ?"
-EXPECTED_ABSTENTION = "Je ne trouve pas cette information dans les politiques RH fournies."
+EXPECTED_ABSTENTION = (
+    "Je ne trouve pas cette information dans les politiques RH fournies."
+)
 
 
 def _check_health() -> bool:
@@ -31,7 +35,16 @@ def _start_local_server() -> subprocess.Popen[bytes]:
     host = parsed_url.hostname or "127.0.0.1"
     port = parsed_url.port or (443 if parsed_url.scheme == "https" else 80)
     return subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "saas_rh.main:app", "--host", host, "--port", str(port)],
+        [
+            sys.executable,
+            "-m",
+            "uvicorn",
+            "saas_rh.main:app",
+            "--host",
+            host,
+            "--port",
+            str(port),
+        ],
         cwd=os.path.dirname(os.path.dirname(__file__)),
     )
 

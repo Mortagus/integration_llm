@@ -2,16 +2,11 @@ import json
 import logging
 from collections.abc import Sequence
 
-from anthropic import Anthropic
-from anthropic import APIStatusError as AnthropicAPIStatusError
-from openai import APIStatusError as OpenAIAPIStatusError
-from openai import OpenAI
-from openai.types.chat import ChatCompletionMessageParam
-
 from saas_rh.candidates.privacy import redact_candidate_pii
 from saas_rh.candidates.schemas import CandidateParseEvidence, CandidateParseResponse
 from saas_rh.candidates.scoring import calculate_match_score
 from saas_rh.data.candidates.mock_data import OFFRE_POSTE_DEV_PYTHON
+from saas_rh.llm.gateway import LLMGateway, LLMProviderStatusError
 
 logger = logging.getLogger(__name__)
 RETRYABLE_STATUS_CODES = {404, 408, 429, 500, 502, 503, 504}
@@ -39,15 +34,16 @@ class CandidateParserService:
 
     def __init__(
         self,
-        client: OpenAI | Anthropic,
+        gateway: LLMGateway,
         model_name: str,
         fallback_model_names: Sequence[str] = (),
     ) -> None:
-        self.client = client
+        self.gateway = gateway
         self.model_names = tuple(dict.fromkeys((model_name, *fallback_model_names)))
 
     def parse_candidate(self, cv_text: str) -> CandidateParseResponse:
         """Extract CV facts, calculate a deterministic score, and validate output."""
+        # TODO: Une recherche sur l'injection de prompt pourrait aider à mieux protéger les données.
         redacted_cv_text = redact_candidate_pii(cv_text)
         system_prompt = (
             "Tu es un assistant chargé d'extraire des faits d'un CV à partir "
@@ -77,35 +73,17 @@ class CandidateParserService:
             {"job_offer": OFFRE_POSTE_DEV_PYTHON, "cv": redacted_cv_text},
             ensure_ascii=False,
         )
-        messages: list[ChatCompletionMessageParam] = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ]
-        retryable_errors = (OpenAIAPIStatusError, AnthropicAPIStatusError)
-        last_retryable_error: OpenAIAPIStatusError | AnthropicAPIStatusError | None = (
-            None
-        )
+        last_retryable_error: LLMProviderStatusError | None = None
         last_retryable_model: str | None = None
         for model_name in self.model_names:
             try:
-                if isinstance(self.client, Anthropic):
-                    response = self.client.messages.parse(
-                        model=model_name,
-                        max_tokens=4096,
-                        system=system_prompt,
-                        messages=[{"role": "user", "content": user_prompt}],
-                        output_format=CandidateParseEvidence,
-                    )
-                    candidate = response.parsed_output
-                else:
-                    response = self.client.chat.completions.parse(
-                        model=model_name,
-                        response_format=CandidateParseEvidence,
-                        messages=messages,
-                        temperature=0.0,
-                    )
-                    candidate = response.choices[0].message.parsed
-            except retryable_errors as error:
+                candidate = self.gateway.parse_structured(
+                    model_name,
+                    system_prompt,
+                    user_prompt,
+                    CandidateParseEvidence,
+                )
+            except LLMProviderStatusError as error:
                 if error.status_code not in RETRYABLE_STATUS_CODES:
                     raise
                 last_retryable_error = error

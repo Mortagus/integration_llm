@@ -36,7 +36,7 @@ def get_candidate_pdf_text_extractor() -> CandidatePdfTextExtractor:
     return CandidatePdfTextExtractor()
 
 
-async def get_interview_service(request: Request) -> InterviewService:
+def get_interview_service(request: Request) -> InterviewService:
     """Return the interview service initialized for this application process."""
     service: InterviewService | None = getattr(
         request.app.state, "interview_service", None

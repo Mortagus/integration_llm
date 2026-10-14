@@ -9,12 +9,13 @@ from saas_rh.main import lifespan
 def test_anthropic_client_receives_workspace_header(monkeypatch) -> None:
     monkeypatch.setenv("LLM_PROVIDER", "anthropic")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-api-key")
+    monkeypatch.setenv("ANTHROPIC_MODEL", "test-model")
     monkeypatch.setenv("ANTHROPIC_WORKSPACE_ID", "test-workspace-id")
     client = Mock()
     anthropic_factory = Mock(return_value=client)
-    monkeypatch.setattr("saas_rh.main.Anthropic", anthropic_factory)
+    monkeypatch.setattr("saas_rh.application.Anthropic", anthropic_factory)
     monkeypatch.setattr(
-        "saas_rh.main.chromadb.PersistentClient",
+        "saas_rh.application.chromadb.PersistentClient",
         Mock(return_value=Mock()),
     )
 

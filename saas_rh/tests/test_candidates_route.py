@@ -1,78 +1,68 @@
-from io import BytesIO
 from unittest.mock import Mock
 
-import pytest
-from fastapi import HTTPException, UploadFile
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
-from saas_rh.api.routers.candidates import parse_candidate
-from saas_rh.candidates.pdf import CandidatePdfTextExtractor
+from saas_rh.api.dependencies import get_candidate_parser_service
+from saas_rh.api.routers.candidates import router
 from saas_rh.candidates.schemas import CandidateParseResponse
 from saas_rh.candidates.service import CandidateParserService
 
 
-def test_parse_candidate_rejects_text_and_pdf_sent_together() -> None:
+def make_client(parser: Mock) -> TestClient:
+    app = FastAPI()
+    app.include_router(router)
+    app.dependency_overrides[get_candidate_parser_service] = lambda: parser
+    return TestClient(app)
+
+
+def test_parse_candidate_returns_profile_over_http() -> None:
     parser = Mock(spec=CandidateParserService)
-    pdf_text_extractor = Mock(spec=CandidatePdfTextExtractor)
-    pdf_file = UploadFile(filename="cv.pdf", file=BytesIO(b"contenu PDF"))
-
-    with pytest.raises(HTTPException) as error_info:
-        parse_candidate(
-            parser=parser,
-            pdf_text_extractor=pdf_text_extractor,
-            cv_text="CV texte",
-            cv_file=pdf_file,
-        )
-
-    assert error_info.value.status_code == 400
-    parser.parse_candidate.assert_not_called()
-    pdf_text_extractor.extract_text.assert_not_called()
-
-
-def test_parse_candidate_accepts_text_only_and_returns_its_score() -> None:
-    candidate = CandidateParseResponse(
+    parser.parse_candidate.return_value = CandidateParseResponse(
         skills=["Python"],
         years_of_experience=6,
         education_level="Master",
         match_score=90,
         warning_points=[],
     )
-    parser = Mock(spec=CandidateParserService)
-    parser.parse_candidate.return_value = candidate
-    pdf_text_extractor = Mock(spec=CandidatePdfTextExtractor)
 
-    result = parse_candidate(
-        parser=parser,
-        pdf_text_extractor=pdf_text_extractor,
-        cv_text=" CV de développeur ",
+    response = make_client(parser).post(
+        "/api/candidates/parse", data={"cv_text": " CV de développeur "}
     )
 
-    assert result == candidate
-    assert result.match_score == 90
+    assert response.status_code == 200
+    assert response.json() == {
+        "skills": ["Python"],
+        "years_of_experience": 6.0,
+        "education_level": "Master",
+        "match_score": 90,
+        "warning_points": [],
+    }
     parser.parse_candidate.assert_called_once_with("CV de développeur")
-    pdf_text_extractor.extract_text.assert_not_called()
 
 
-def test_parse_candidate_accepts_pdf_only_and_returns_its_score() -> None:
-    candidate = CandidateParseResponse(
-        skills=["React"],
-        years_of_experience=1,
-        education_level="Bootcamp",
-        match_score=25,
-        warning_points=["Peu d'expérience Python"],
-    )
+def test_parse_candidate_rejects_text_and_pdf_sent_together_over_http() -> None:
     parser = Mock(spec=CandidateParserService)
-    parser.parse_candidate.return_value = candidate
-    pdf_text_extractor = Mock(spec=CandidatePdfTextExtractor)
-    pdf_text_extractor.extract_text.return_value = "CV PDF extrait"
-    pdf_file = UploadFile(filename="cv.pdf", file=BytesIO(b"contenu PDF"))
 
-    result = parse_candidate(
-        parser=parser,
-        pdf_text_extractor=pdf_text_extractor,
-        cv_file=pdf_file,
+    response = make_client(parser).post(
+        "/api/candidates/parse",
+        data={"cv_text": "CV texte"},
+        files={"cv_file": ("cv.pdf", b"contenu PDF", "application/pdf")},
     )
 
-    assert result == candidate
-    assert result.match_score == 25
-    pdf_text_extractor.extract_text.assert_called_once_with(b"contenu PDF")
-    parser.parse_candidate.assert_called_once_with("CV PDF extrait")
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "Fournissez exactement un CV texte ou un fichier CV."
+    }
+    parser.parse_candidate.assert_not_called()
+
+
+def test_parse_candidate_rejects_missing_input_over_http() -> None:
+    response = make_client(Mock(spec=CandidateParserService)).post(
+        "/api/candidates/parse", data={}
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "Fournissez exactement un CV texte ou un fichier CV."
+    }

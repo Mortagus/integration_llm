@@ -39,9 +39,7 @@ def _python_score(skills: list[str]) -> float:
     ):
         return 1.0
     if any(
-        not re.search(
-            r"\b(?:notion|notions|base|bases|débutant|débutante)\b", skill
-        )
+        not re.search(r"\b(?:notion|notions|base|bases|débutant|débutante)\b", skill)
         for skill in python_skills
     ):
         return 0.9

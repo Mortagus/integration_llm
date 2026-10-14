@@ -128,6 +128,7 @@ textarea::placeholder { color: #a6ada6; }
 .score-card.score-low { background: #f8ece9; color: #a65d50; }
 .score-number { font-family: Georgia, "Times New Roman", serif; font-size: 43px; line-height: 1; }
 .score-label { margin-top: 7px; color: #708074; font-size: 9px; font-weight: 700; letter-spacing: 0.1em; }
+.score-disclaimer { margin: 10px 0 0; color: #747e75; font-size: 11px; line-height: 1.5; }
 .candidate-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .fact-card { padding: 12px; border: 1px solid #e9ece7; border-radius: 9px; background: white; }
 .fact-label { display: block; margin-bottom: 5px; color: #8b938b; font-size: 9px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; }

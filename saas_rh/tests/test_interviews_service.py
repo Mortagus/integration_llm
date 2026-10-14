@@ -13,9 +13,7 @@ from saas_rh.interviews.service import InterviewService
 def test_search_slots_returns_available_times_for_known_date() -> None:
     service = InterviewService(InterviewScheduleRepository())
 
-    result = service.search_slots(
-        InterviewSlotSearchInput(date=date(2026, 10, 15))
-    )
+    result = service.search_slots(InterviewSlotSearchInput(date=date(2026, 10, 15)))
 
     assert result.available_slots == ["09:00", "11:00", "14:30", "16:00"]
 
@@ -23,9 +21,7 @@ def test_search_slots_returns_available_times_for_known_date() -> None:
 def test_search_slots_returns_empty_list_for_unknown_date() -> None:
     service = InterviewService(InterviewScheduleRepository())
 
-    result = service.search_slots(
-        InterviewSlotSearchInput(date=date(2026, 10, 17))
-    )
+    result = service.search_slots(InterviewSlotSearchInput(date=date(2026, 10, 17)))
 
     assert result.available_slots == []
 
