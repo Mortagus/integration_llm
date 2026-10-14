@@ -4,3 +4,4 @@ __pycache__
 .idea
 /saas_rh/src/saas_rh/data/candidates/*.pdf
 /saas_rh/src/saas_rh/data/candidates/*.pdf:Zone.Identifier
+/saas_rh/.chroma/

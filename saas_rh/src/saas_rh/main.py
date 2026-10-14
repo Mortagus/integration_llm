@@ -2,6 +2,7 @@ import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import chromadb
 from anthropic import Anthropic
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -9,6 +10,7 @@ from openai import OpenAI
 
 from saas_rh.api.routers import agent, candidates, interviews, rag, system
 from saas_rh.candidates.service import CandidateParserService
+from saas_rh.rag.service import RAGService
 
 
 def _configured_fallback_models(environment_variable: str) -> tuple[str, ...]:
@@ -58,8 +60,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             model_name=model_name,
             fallback_model_names=fallback_models,
         )
+        chroma_client = chromadb.PersistentClient(
+            path=os.getenv("CHROMA_DB_PATH", ".chroma")
+        )
+        collection = chroma_client.get_or_create_collection(name="politiques_rh")
+        rag_service = RAGService(
+            collection=collection,
+            llm_client=client,
+            model_name=model_name,
+        )
+        app.state.rag_service = rag_service
     else:
         app.state.candidate_parser_service = None
+        app.state.rag_service = None
 
     try:
         yield

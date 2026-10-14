@@ -13,6 +13,10 @@ def test_anthropic_client_receives_workspace_header(monkeypatch) -> None:
     client = Mock()
     anthropic_factory = Mock(return_value=client)
     monkeypatch.setattr("saas_rh.main.Anthropic", anthropic_factory)
+    monkeypatch.setattr(
+        "saas_rh.main.chromadb.PersistentClient",
+        Mock(return_value=Mock()),
+    )
 
     async def run_lifespan() -> None:
         async with lifespan(FastAPI()):

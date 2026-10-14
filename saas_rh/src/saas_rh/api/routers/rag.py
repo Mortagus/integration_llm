@@ -1,8 +1,10 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Form, HTTPException, status
+from fastapi import APIRouter, Depends, Form, HTTPException, status
 
+from saas_rh.api.dependencies import get_rag_service
 from saas_rh.rag.schemas import RagAskResponse
+from saas_rh.rag.service import RAGService
 
 router = APIRouter(
     prefix="/api/rag",
@@ -10,12 +12,9 @@ router = APIRouter(
 )
 
 
-@router.post(
-    "/ask",
-    response_model=RagAskResponse,
-    responses={501: {"description": "Rag Query non implémenté"}},
-)
-async def ask_rag(
+@router.post("/ask", response_model=RagAskResponse)
+def ask_rag(
+    rag_service: Annotated[RAGService, Depends(get_rag_service)],
     question: Annotated[str | None, Form()] = None,
 ) -> RagAskResponse:
     has_question = question is not None and bool(question.strip())
@@ -26,7 +25,5 @@ async def ask_rag(
             detail="Veuillez envoyer une question.",
         )
 
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Rag Ask n'est pas encore implémenté.",
-    )
+    assert question is not None
+    return rag_service.answer_question(question.strip())
