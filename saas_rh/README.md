@@ -1,23 +1,92 @@
-# SaaS RH
+# SaaS RH — Assistant de recrutement
 
-## Test fonctionnel du parsing candidat
+Projet de formation « Développement IA » : une application RH qui combine extraction structurée de CV, recherche documentaire RAG et agent conversationnel avec appel d'outils.
 
-Ce test appelle le vrai service LLM et reste désactivé pendant la suite Pytest habituelle. Pour l'exécuter :
+## Objectifs
+
+Le projet reprend les quatre piliers et les scénarios de validation du cahier des charges PDF :
+
+1. **Parsing de CV** — extraire les compétences, l'expérience, la formation et les points de vigilance depuis du texte ou un PDF. Le LLM extrait les faits ; un calcul Python déterministe évalue l'adéquation au poste.
+2. **Assistant RH RAG** — interroger les politiques RH, obtenir une réponse sourcée et refuser de répondre lorsqu'une information n'est pas documentée.
+3. **Agent de planification** — rechercher et réserver un créneau d'entretien à l'aide d'outils métier. L'agenda est fictif et conservé en mémoire.
+4. **Interface conversationnelle** — utiliser les parcours depuis une page web et suivre en temps réel la réponse de l'agent et les outils appelés grâce au streaming SSE.
+
+Le scénario de démonstration couvre les deux CV exemples, les questions sur les RTT/CET et la prime de naissance, ainsi que la recherche et la réservation d'un entretien. L'envoi d'invitations et la mise à jour des statuts candidats sont hors du périmètre actuel.
+
+## Stack technique
+
+- **Python 3.11+**, **uv** pour l'environnement et les dépendances.
+- **FastAPI** et **Uvicorn** pour l'API HTTP et le serveur local ; **Pydantic** pour valider les données et les sorties structurées.
+- **Google Gemini** via le SDK **OpenAI** en mode compatible, ou **Anthropic** via son SDK Python. Le fournisseur se choisit par configuration.
+- **ChromaDB** pour la base vectorielle persistante du RAG ; **pypdf** pour extraire le texte des PDF.
+- **HTML, CSS et JavaScript** pour l'interface, servie par FastAPI ; **SSE** pour le chat en streaming.
+- **Pytest** pour les tests et **Ruff** pour le lint.
+
+## Prérequis
+
+- Python 3.11 ou une version plus récente.
+- [uv](https://docs.astral.sh/uv/).
+- Une clé API Gemini ou Anthropic pour utiliser les fonctions qui appellent un LLM. Les tests unitaires et API simulés n'en ont pas besoin.
+
+## Installer après un `git clone`
+
+Depuis la racine du dépôt cloné, entre dans le dossier du projet puis installe les dépendances :
 
 ```bash
-SAAS_RH_RUN_FUNCTIONAL_TESTS=1 uv run pytest tests/test_candidates_functional.py
+cd saas_rh
+uv sync
 ```
 
-Le test réutilise le serveur à `http://127.0.0.1:8000` s'il répond sur `/health`, sinon il démarre Uvicorn et l'arrête à la fin. L'URL peut être modifiée avec `SAAS_RH_BASE_URL`. Le fournisseur actif est défini par `LLM_PROVIDER` dans le `.env` (`gemini` ou `anthropic`). Il faut renseigner la clé correspondante (`GEMINI_API_KEY` ou `ANTHROPIC_API_KEY`). Si le fichier local `src/saas_rh/data/candidates/20261014_test_cv.pdf` existe, le test l'envoie également à l'API. Les PDF de CV locaux sont ignorés par Git. Si une requête échoue avec une erreur serveur, la traceback apparaît dans le terminal qui exécute Uvicorn.
+Pour lancer l'application, crée le fichier local `.env` à partir du modèle et renseigne une clé ainsi qu'un modèle disponible :
 
-La route de parsing accepte le texte ou un fichier PDF. Le texte sélectionnable du PDF est extrait avec `pypdf`; les PDF scannés qui ne contiennent pas de texte sélectionnable nécessitent une étape OCR et ne sont pas pris en charge pour le moment.
+```bash
+cp .env.example .env
+```
 
-Le parsing tente le modèle configuré (`GEMINI_MODEL` ou `ANTHROPIC_MODEL`), puis les modèles de repli configurés (`GEMINI_FALLBACK_MODELS` ou `ANTHROPIC_FALLBACK_MODELS`), séparés par des virgules. Il passe au modèle suivant après une erreur de disponibilité (404, 408, 429 ou erreur serveur 5xx) ; les erreurs de configuration, d'authentification et de format de requête arrêtent le traitement. Si tous les modèles échouent, la réponse 503 indique le dernier modèle essayé et le message du fournisseur.
+Dans `.env`, définis `LLM_PROVIDER` à `gemini` ou `anthropic`, puis renseigne la clé et le nom de modèle correspondants. Les clés ne doivent jamais être ajoutées à Git. Pour Anthropic, `ANTHROPIC_WORKSPACE_ID` est facultatif et ne sert que si la clé l'exige.
 
-Pour Anthropic, l'application utilise le SDK Python officiel et les sorties structurées `messages.parse` avec le schéma Pydantic du candidat. Un abonnement Claude Code n'est pas une clé API générique pour l'application : configurez une clé `ANTHROPIC_API_KEY` autorisée pour l'API Anthropic. Pour changer de fournisseur, modifiez `LLM_PROVIDER` dans le `.env`.
+Si le dépôt cloné ne contient pas de sous-dossier `saas_rh` parce que ce projet a été cloné directement, exécute les commandes depuis la racine du clone et omets `cd saas_rh`.
 
-Si Anthropic répond que la clé n'est associée à aucun workspace, renseignez `ANTHROPIC_WORKSPACE_ID` avec l'identifiant du workspace dans le `.env`. Le client enverra alors l'en-tête `anthropic-workspace-id` à chaque requête. Dans l'Anthropic Console, les workspaces se gèrent dans **Settings → Workspaces** ; une clé créée depuis l'onglet **API Keys** d'un workspace y est déjà rattachée. Les clés API sont liées au workspace où elles ont été créées et ne peuvent pas être déplacées.
+## Lancer l'application
 
-## Assistant RH RAG
+Depuis le dossier `saas_rh` :
 
-Le service RAG indexe les politiques RH dans ChromaDB à la première question, puis renvoie une réponse accompagnée des politiques retrouvées. La base persistante est enregistrée dans `.chroma/` par défaut ; `CHROMA_DB_PATH` permet de choisir un autre dossier. Le premier indexage utilise la fonction d’embedding par défaut de ChromaDB et peut télécharger son modèle local si celui-ci n’est pas déjà présent.
+```bash
+uv run uvicorn saas_rh.main:app --reload
+```
+
+Puis ouvre :
+
+- Interface RH : <http://127.0.0.1:8000/>
+- Documentation interactive de l'API : <http://127.0.0.1:8000/docs>
+- Vérification du serveur : <http://127.0.0.1:8000/health>
+
+Les routes principales sont `POST /api/candidates/parse`, `POST /api/rag/ask`, `GET /api/interviews/slots` et `POST /api/agent/chat`.
+
+## Tester
+
+La suite standard utilise des clients simulés et ne nécessite ni clé API, ni serveur lancé :
+
+```bash
+uv run pytest
+```
+
+Les tests fonctionnels avec de vrais appels LLM sont désactivés par défaut. Pour lancer toute la suite fonctionnelle, configure le fournisseur et sa clé dans `.env`, puis utilise un port dédié afin que les tests démarrent une instance avec la configuration courante :
+
+```bash
+SAAS_RH_RUN_FUNCTIONAL_TESTS=1 SAAS_RH_BASE_URL=http://127.0.0.1:8001 uv run pytest
+```
+
+Ces tests appellent réellement le fournisseur configuré et consomment son quota ou ses crédits. Si un serveur répond déjà sur l'URL choisie, les tests le réutilisent. Le port dédié évite généralement de réutiliser par erreur un serveur lancé avec une autre configuration.
+
+Le test fonctionnel de parsing envoie les deux CV exemples et, si le fichier local existe, le PDF `src/saas_rh/data/candidates/20261014_test_cv.pdf`. Les PDF locaux sont ignorés par Git. Les PDF scannés sans texte sélectionnable ne sont pas pris en charge : l'extraction OCR reste à ajouter.
+
+## Données et persistance
+
+Les politiques RH, les CV exemples et l'agenda fictif sont dans `src/saas_rh/data/`. ChromaDB persiste son index dans `.chroma/` par défaut ; `CHROMA_DB_PATH` permet de changer ce chemin. Au premier usage, ChromaDB peut télécharger son modèle d'embedding local. Les réservations d'entretien ne sont pas persistées et l'agenda est réinitialisé au redémarrage du serveur.
+
+## Configuration
+
+Les variables disponibles sont documentées dans [`.env.example`](.env.example). Le modèle principal est défini par `GEMINI_MODEL` ou `ANTHROPIC_MODEL`. Des modèles de repli facultatifs peuvent être listés, séparés par des virgules, dans `GEMINI_FALLBACK_MODELS` ou `ANTHROPIC_FALLBACK_MODELS`.
+
+Pour poursuivre le travail, consulter [`PLAN_PROJET.md`](PLAN_PROJET.md) et [`REPRISE.md`](REPRISE.md).
