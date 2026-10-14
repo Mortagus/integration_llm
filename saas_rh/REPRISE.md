@@ -7,7 +7,7 @@ Exercice de formation sur l’intégration LLM et RAG. Le projet est une API Pyt
 ## État actuel
 
 - L’étape 0 (environnement FastAPI) est terminée : `uv`, Python 3.11, FastAPI, tests Pytest et Ruff sont en place.
-- Les routes principales sont déclarées et les tests simples ont été ajoutés, notamment le test SSE minimal.
+- Les routes principales sont déclarées et testées. `POST /api/agent/chat` diffuse maintenant la réponse de l'agent en SSE avec des événements de texte, d'appel d'outil, de résultat d'outil, d'erreur et de fin.
 - L’étape 2 (données sources) a été réalisée : politiques RH, offre, CV exemples et agenda sont organisés dans `src/saas_rh/data/`.
 - Les textes de l’offre et des deux CV ont été relus après correction des coupures de mots et nettoyage des espaces. Le contenu est cohérent avec le PDF.
 - Le service `CandidateParserService` est implémenté dans `src/saas_rh/candidates/service.py`. Il utilise `chat.completions.parse` et `CandidateParseResponse` pour extraire le profil à partir du CV texte.
@@ -26,7 +26,7 @@ Le DTO existe dans `src/saas_rh/candidates/schemas.py` : `CandidateParseResponse
 
 `RAGService` indexe les politiques dans ChromaDB, récupère les passages pertinents et génère une réponse limitée au contexte avec ses sources. Les deux scénarios du PDF sont couverts : réponse sur les RTT et le CET, et abstention sur la prime de naissance absente. La compatibilité de l'appel Anthropic est couverte par un test de régression. Le travail est enregistré dans le commit `1d5415d` (`Ajoute le service RAG sur ChromaDB`).
 
-## Prochaine étape : outils d’entretien et tool calling
+## Outils d’entretien et tool calling — terminés
 
 Les étapes ci-dessous seront mises à jour et marquées **faites** au fur et à mesure de leur validation.
 
@@ -37,8 +37,9 @@ Les étapes ci-dessous seront mises à jour et marquées **faites** au fur et à
 - [x] **5. Définir les outils exposés au LLM** — `interviews/tools.py` maintient une définition commune de `search_interview_slots` et `reserve_interview_slot`, puis produit les formats OpenAI/Gemini et Anthropic. Les paramètres proviennent des schémas Pydantic ; les descriptions imposent de chercher avant de réserver et de ne pas confirmer un échec. Tests de schéma présents dans `tests/test_interview_tools.py`.
 - [x] **6. Préparer le service agent** — `AgentService` reçoit le client LLM et `InterviewService` par injection, conserve l'historique et traite les appels d'outils pour OpenAI/Gemini et Anthropic. Il limite les tours, valide les arguments avec Pydantic et refuse une réservation si le créneau n'a pas été retourné par une recherche précédente. Il est initialisé dans le lifespan et accessible via `get_agent_service`. Les tests unitaires couvrent les deux formats fournisseur, la limite et le garde-fou de réservation.
 - [x] **7. Tester le scénario complet avec des dépendances simulées** — `tests/test_agent_scenario.py` simule les réponses du LLM et vérifie, pour OpenAI/Gemini et Anthropic, la recherche le `2026-10-15`, la réservation effective du créneau choisi pour Jean Dupont et le statut `SUCCEEDED` transmis avant confirmation. Aucun e-mail ni appel fournisseur réel n'est effectué par ces tests.
+- [x] **8. Relier `POST /api/agent/chat` et diffuser les événements SSE** — la route transmet le message à `AgentService` et diffuse les fragments texte, appels et résultats d'outils, puis l'événement `done`. En cas de problème, elle diffuse `error` puis `done` avec le statut d'erreur. Les tests simulés couvrent les événements de route ainsi que le streaming OpenAI et Anthropic, sans appel réseau.
 
-Le tool calling métier est implémenté et testé au niveau de `AgentService`. La route `/api/agent/chat` reste encore un stub ; son raccord au service et l'émission des événements SSE (texte et actions d'outils) constituent l'étape suivante.
+L'endpoint SSE et le tool calling sont implémentés. La prochaine étape est de connecter l'interface de chat à `POST /api/agent/chat` et de traiter les différents événements côté navigateur.
 
 ## Vérifications parsing à rejouer (facultatif)
 

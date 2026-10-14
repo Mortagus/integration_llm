@@ -11,6 +11,32 @@ from saas_rh.interviews.schemas import InterviewSlotSearchInput
 from saas_rh.interviews.service import InterviewService
 
 
+class FakeStream:
+    def __init__(self, chunks):
+        self.chunks = chunks
+
+    def __enter__(self):
+        return iter(self.chunks)
+
+    def __exit__(self, *_args):
+        return None
+
+
+class FakeAnthropicStream:
+    def __init__(self, text_fragments, final_message):
+        self.text_stream = iter(text_fragments)
+        self.final_message = final_message
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return None
+
+    def get_final_message(self):
+        return self.final_message
+
+
 def test_openai_agent_returns_final_text_after_a_tool_result() -> None:
     client = OpenAI(api_key="test-api-key")
     client.chat.completions.create = Mock(
@@ -207,3 +233,89 @@ def test_agent_refuses_to_reserve_a_slot_not_returned_by_search() -> None:
     assert interview_service.search_slots(
         InterviewSlotSearchInput(date="2026-10-15")
     ).available_slots[0] == "09:00"
+
+
+def test_openai_agent_streams_tool_activity_and_final_text() -> None:
+    client = OpenAI(api_key="test-api-key")
+    tool_call_chunk = SimpleNamespace(
+        choices=[
+            SimpleNamespace(
+                delta=SimpleNamespace(
+                    content=None,
+                    tool_calls=[
+                        SimpleNamespace(
+                            index=0,
+                            id="call-search",
+                            function=SimpleNamespace(
+                                name="search_interview_slots",
+                                arguments='{"date":"2026-10-15"}',
+                            ),
+                        )
+                    ],
+                )
+            )
+        ]
+    )
+    final_text_chunk = SimpleNamespace(
+        choices=[
+            SimpleNamespace(
+                delta=SimpleNamespace(content="Quatre créneaux sont disponibles.", tool_calls=None)
+            )
+        ]
+    )
+    client.chat.completions.create = Mock(
+        side_effect=[FakeStream([tool_call_chunk]), FakeStream([final_text_chunk])]
+    )
+    service = AgentService(
+        llm_client=client,
+        model_name="modele-test",
+        interview_service=InterviewService(InterviewScheduleRepository()),
+    )
+
+    try:
+        events = list(service.stream_events("Quels sont les créneaux le 2026-10-15 ?"))
+    finally:
+        client.close()
+
+    assert [event.event_type for event in events] == [
+        "tool_call",
+        "tool_result",
+        "text",
+        "done",
+    ]
+    assert events[0].data == {"name": "search_interview_slots"}
+    assert events[1].data["result"]["available_slots"] == [
+        "09:00",
+        "11:00",
+        "14:30",
+        "16:00",
+    ]
+    assert events[2].data == {"text": "Quatre créneaux sont disponibles."}
+
+
+def test_anthropic_agent_streams_text_and_completion() -> None:
+    client = Anthropic(api_key="test-api-key")
+    client.messages.stream = Mock(
+        return_value=FakeAnthropicStream(
+            ["Bonjour", " !"],
+            SimpleNamespace(
+                content=[SimpleNamespace(type="text", text="Bonjour !")]
+            ),
+        )
+    )
+    service = AgentService(
+        llm_client=client,
+        model_name="modele-test",
+        interview_service=InterviewService(InterviewScheduleRepository()),
+    )
+
+    try:
+        events = list(service.stream_events("Bonjour"))
+    finally:
+        client.close()
+
+    assert [(event.event_type, event.data) for event in events] == [
+        ("text", {"text": "Bonjour"}),
+        ("text", {"text": " !"}),
+        ("done", {"status": "completed"}),
+    ]
