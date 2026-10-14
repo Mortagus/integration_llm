@@ -105,6 +105,7 @@ class RAGService:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": question},
                 ],
+                max_tokens=1024,
                 temperature=0.0,
             )
             answer = response.choices[0].message.content

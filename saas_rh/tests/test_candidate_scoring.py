@@ -64,3 +64,15 @@ def test_python_version_311_or_newer_gets_full_python_credit() -> None:
     )
 
     assert calculate_match_score(candidate) == 11
+
+
+def test_substrings_in_unrelated_skills_do_not_count_as_rag() -> None:
+    candidate = CandidateParseEvidence(
+        skills=["Cloud Storage", "Data Averaging"],
+        years_of_experience=0,
+        education_level="Non précisé",
+        warning_points=[],
+        leadership_evidence=[],
+    )
+
+    assert calculate_match_score(candidate) == 0

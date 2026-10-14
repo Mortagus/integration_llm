@@ -109,7 +109,7 @@ function renderCandidateResult(result, target) {
       "Expérience pertinente",
       `${Number(result.years_of_experience).toLocaleString("fr-BE", { maximumFractionDigits: 1 })} ans`,
     ],
-    ["Niveau d’études", result.education_level],
+    ["Niveau d’études", result.education_level ?? "Non précisé"],
   ];
   for (const [label, value] of factData) {
     const fact = createElement("div", "fact-card");

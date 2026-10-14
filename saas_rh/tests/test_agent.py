@@ -1,6 +1,10 @@
-import asyncio
 import json
 from types import SimpleNamespace
+
+import anyio
+import pytest
+from fastapi import HTTPException
+from fastapi.sse import ServerSentEvent
 
 from saas_rh.agent.schemas import AgentConversationMessage
 from saas_rh.api.routers.agent import agent_chat
@@ -23,14 +27,30 @@ async def _collect_agent_events(
     user_prompt: str,
     conversation_history_json: str | None = None,
 ):
-    return [
-        event
-        async for event in agent_chat(
-            agent_service=agent_service,
-            user_prompt=user_prompt,
-            conversation_history_json=conversation_history_json,
-        )
-    ]
+    response = await agent_chat(
+        agent_service=agent_service,
+        user_prompt=user_prompt,
+        conversation_history_json=conversation_history_json,
+    )
+    events = []
+    async for chunk in response.body_iterator:
+        if isinstance(chunk, ServerSentEvent):
+            events.append(SimpleNamespace(event=chunk.event, data=chunk.data))
+            continue
+        content = chunk.decode() if isinstance(chunk, bytes) else chunk
+        for record in content.replace("\r\n", "\n").split("\n\n"):
+            fields = dict(
+                line.split(": ", maxsplit=1)
+                for line in record.splitlines()
+                if ": " in line
+            )
+            if "event" in fields and "data" in fields:
+                events.append(
+                    SimpleNamespace(
+                        event=fields["event"], data=json.loads(fields["data"])
+                    )
+                )
+    return events
 
 
 def test_agent_chat_streams_text_tools_results_and_completion() -> None:
@@ -48,7 +68,7 @@ def test_agent_chat_streams_text_tools_results_and_completion() -> None:
             SimpleNamespace(event_type="done", data={"status": "completed"}),
         ]
     )
-    events = asyncio.run(_collect_agent_events(service, "Trouve un créneau."))
+    events = anyio.run(_collect_agent_events, service, "Trouve un créneau.")
 
     assert [(event.event, event.data) for event in events] == [
         ("text", {"text": "Je recherche."}),
@@ -72,12 +92,11 @@ def test_agent_chat_passes_validated_conversation_history_to_service() -> None:
         {"role": "assistant", "content": "Les créneaux sont 09:00 et 11:00."},
     ]
 
-    asyncio.run(
-        _collect_agent_events(
-            service,
-            "Je prends 09:00.",
-            conversation_history_json=json.dumps(history),
-        )
+    anyio.run(
+        _collect_agent_events,
+        service,
+        "Je prends 09:00.",
+        json.dumps(history),
     )
 
     assert service.conversation_history == [
@@ -91,8 +110,8 @@ def test_agent_chat_returns_error_and_done_events_when_service_fails() -> None:
             raise RuntimeError("Erreur simulée")
             yield  # pragma: no cover
 
-    events = asyncio.run(
-        _collect_agent_events(FailingAgentService(), "Trouve un créneau.")
+    events = anyio.run(
+        _collect_agent_events, FailingAgentService(), "Trouve un créneau."
     )
 
     assert [(event.event, event.data) for event in events] == [
@@ -101,10 +120,8 @@ def test_agent_chat_returns_error_and_done_events_when_service_fails() -> None:
     ]
 
 
-def test_agent_chat_returns_error_event_for_a_blank_prompt() -> None:
-    events = asyncio.run(_collect_agent_events(FakeAgentService(), "   "))
+def test_agent_chat_rejects_blank_prompt_with_bad_request() -> None:
+    with pytest.raises(HTTPException) as error_info:
+        anyio.run(_collect_agent_events, FakeAgentService(), "   ")
 
-    assert [(event.event, event.data) for event in events] == [
-        ("error", {"message": "Le message utilisateur ne peut pas être vide."}),
-        ("done", {"status": "error"}),
-    ]
+    assert error_info.value.status_code == 400

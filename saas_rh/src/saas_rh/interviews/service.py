@@ -40,6 +40,7 @@ class InterviewService:
             message=(
                 f"Entretien confirmé pour {request.candidate_name} le "
                 f"{interview_date} à {interview_time}. "
-                f"Invitation envoyée à {request.email}."
+                f"Invitation envoyée à {request.email}. "
+                "Simulation de l'exercice : aucun e-mail réel n'a été envoyé."
             ),
         )

@@ -14,7 +14,7 @@ Exercice de formation sur l’intégration LLM et RAG. Le projet est une API Pyt
 - Le client du fournisseur choisi (`OpenAI` compatible Gemini ou SDK `Anthropic`) est créé pendant le cycle de vie FastAPI et fermé à l'arrêt. La dépendance `get_candidate_parser_service` fournit le `CandidateParserService` à la route via `Depends`.
 - Le fournisseur du parsing candidat se choisit avec `LLM_PROVIDER` (`gemini` ou `anthropic`). Le SDK Python Anthropic est installé et son client est construit dans le cycle de vie FastAPI ; les deux fournisseurs utilisent `CandidateParseResponse` en sortie structurée. Les URL, modèles et modèles de repli sont configurés dans le `.env` à la racine du dossier de formation.
 - `POST /api/candidates/parse` analyse du texte ou extrait le texte sélectionnable d'un PDF avec `pypdf`. Les PDF scannés sans couche texte ne sont pas encore pris en charge (OCR à prévoir). Sans la clé du fournisseur sélectionné, la route répond 503.
-- `CandidateParserService` tente les modèles configurés pour le fournisseur actif dans l'ordre et bascule après des erreurs temporaires ou de modèle indisponible. Si toute la liste échoue, l'erreur 503 contient le nom du dernier modèle tenté et le message renvoyé par le fournisseur. Les tests unitaires couvrent ce message, le basculement, l'absence de repli sur une erreur 400 et le rejet d'une sortie structurée absente.
+- `CandidateParserService` tente les modèles configurés pour le fournisseur actif dans l'ordre et bascule après des erreurs temporaires ou de modèle indisponible. Si toute la liste échoue, l'exception interne conserve le dernier modèle et le détail fournisseur pour le diagnostic, tandis que la route renvoie un message générique 503 au client. Les tests unitaires couvrent le basculement, l'absence de repli sur une erreur 400 et le rejet d'une sortie structurée absente.
 - Le test fonctionnel opt-in vérifie les deux CV : score supérieur à 80 et présence de FastAPI pour Jean Dupont, score inférieur à 40 pour Sophie Martin. Il peut aussi envoyer le PDF local à l'API réelle. Après le remplacement du score LLM par le barème déterministe, l'utilisateur a relancé ce test avec Gemini et en a confirmé le succès.
 - La configuration Anthropic accepte `ANTHROPIC_WORKSPACE_ID` et envoie l'en-tête `anthropic-workspace-id` lorsque cette valeur est renseignée. Un test unitaire vérifie la construction du client sans appel réseau.
 
@@ -47,7 +47,7 @@ Les étapes ci-dessous seront mises à jour et marquées **faites** au fur et à
 
 L'interface est implémentée et a été testée manuellement par l'utilisateur. Elle présente les quatre parcours : parsing candidat, assistant RH RAG, consultation de l'agenda et chat de l'agent. Les résultats sont affichés avec une présentation adaptée à chaque parcours ; le chat rend visibles le texte en streaming et les actions de l'agent.
 
-La suite automatisée standard a été lancée après le calcul déterministe du score avec `uv run pytest` : **48 tests réussis, 3 ignorés** (2,59 s). Les trois tests ignorés sont fonctionnels et opt-in : ils nécessitent un serveur local et des appels réels au fournisseur LLM. Les tests RAG fonctionnels avaient réussi lors d'une précédente exécution opt-in ; après le changement de calcul, le test de parsing candidat a été relancé avec Gemini et l'utilisateur en a confirmé le succès.
+La dernière suite automatisée standard exécutée après le traitement de S-05 a donné **49 tests réussis, 3 ignorés**. Les trois tests ignorés sont fonctionnels et opt-in : ils nécessitent un serveur local et des appels réels au fournisseur LLM. Les changements ultérieurs de Q-03 et D-01 restent à valider par une prochaine exécution. Les tests RAG fonctionnels avaient réussi lors d'une précédente exécution opt-in ; après le changement de calcul, le test de parsing candidat a été relancé avec Gemini et l'utilisateur en a confirmé le succès.
 
 Les trois démonstrations fonctionnelles du PDF restent les scénarios de référence : parsing des deux CV, question RAG répondue puis refusée, et recherche/réservation d'un entretien. Les tests fonctionnels réels n'ont pas été activés lors de la validation standard ; ils restent à exécuter séparément si l'on souhaite vérifier l'intégration avec le fournisseur configuré.
 
@@ -58,3 +58,43 @@ Le PDF évoque aussi l'envoi d'invitations et la mise à jour des statuts candid
 La validation fonctionnelle opt-in avec Gemini est réussie pour le parsing candidat et le RAG. La bascule entre modèles n'a pas été vérifiée et n'est pas requise pour clôturer cette étape. Si la clé Anthropic n'est pas liée à un workspace, renseigner `ANTHROPIC_WORKSPACE_ID` dans le `.env`.
 
 Le PDF source est à la racine : `Projet SaaS RH & Assistant de Recrutement.pdf`. Le plan complet est dans `PLAN_PROJET.md`.
+
+## Suivi des constats de `AUDIT.md`
+
+Les points sont conservés dans l'ordre de priorité établi après la revue. `[x]` signifie que le traitement indiqué est implémenté ; `[ ]` signifie qu'il reste à traiter, qu'il est partiel ou qu'il a été accepté hors périmètre. Les notes précisent ces cas.
+
+### À prendre au sérieux, même pour l’exercice
+
+- [x] **Q-01 — Faux positifs dans le score** : correspondances par mots entiers et test de régression, pour éviter par exemple que « Storage » corresponde à « RAG ».
+- [x] **S-01 — Boucle bloquante pendant le chat** : itération du générateur synchrone dans un thread pour ne pas bloquer la boucle d’événements.
+- [x] **S-03 — Absence de limites** : limites ajoutées pour le texte et les PDF candidats, les questions RAG, les messages et l’historique de l’agent, ainsi que les sorties LLM.
+- [ ] **L-01 — CV contrôlé par le candidat envoyé au LLM** : atténuation partielle. Le prompt précise que le CV est une donnée non fiable et le transmet comme contenu délimité ; aucune vérification indépendante des faits extraits n’est mise en place, faute de source de vérité. Le score doit rester interprété comme une estimation fondée sur l’extraction du modèle.
+- [x] **Q-02 — Diplôme obligatoire** : le niveau d’études est facultatif ; le modèle doit renvoyer `null` si le CV ne le précise pas.
+- [x] **S-04 — Message d’erreur fournisseur renvoyé au client** : la route renvoie une erreur générique ; le détail fournisseur reste dans l’exception interne et les journaux contrôlés.
+- [x] **Q-03 — « Invitation envoyée »** : formulation exigée par l’exercice conservée, avec la précision qu’il s’agit d’une simulation et qu’aucun e-mail réel n’a été envoyé.
+
+### Importants seulement si le projet est exposé ou utilisé en conditions réelles
+
+- [ ] **S-02 — Pas d’authentification ni de limitation de débit** : explicitement hors périmètre retenu ; le projet est un exercice local de formation et n’est pas destiné à être exposé publiquement.
+- [x] **D-01 — Données personnelles envoyées au fournisseur** : masquage de données personnelles courantes avant l’appel LLM. Le masquage repose sur des motifs et ne garantit pas l’anonymisation de tout texte libre ; utiliser des CV fictifs pour l’exercice.
+- [ ] **D-02 — Score et libellé de verdict** : le score reste indicatif et le libellé de verdict n’a pas été modifié.
+- [ ] **L-03 — Historique falsifiable par le client** : la taille de l’historique est bornée dans S-03, mais son contenu fourni par le client reste falsifiable.
+- [ ] **S-06 — Documentation et en-têtes HTTP** : pas de changement ; l’accès à `/docs` est conservé pour l’exercice local.
+- [ ] **S-07 — CVE ChromaDB** : point laissé en veille ; le statut des avis n’a pas été vérifié dans ce suivi.
+
+### À arbitrer selon l’énoncé ou à classer comme amélioration
+
+- [ ] **C-01 — Indexation RAG au démarrage** : conflit documentaire non arbitré. `PLAN_PROJET.md` demande l’indexation au démarrage, tandis que `AGENTS.md` décrit l’indexation à la première question.
+- [ ] **L-02 — Sources affichées après un refus** : comportement non modifié ; aucun seuil de distance n’a été calibré.
+- [x] **S-05 — Erreurs incohérentes** : erreurs d’intégration rendues explicites dans les routes (statuts HTTP adaptés et messages génériques) ; les échecs survenant après le début du streaming restent signalés par un événement SSE `error`.
+- [ ] **Q-05 — `assert` dans les routes** : amélioration non appliquée.
+- [ ] **Q-06 — Tests des routes appelés directement** : couverture HTTP via client de test à compléter.
+- [ ] **Q-07 — Formatage Ruff** : vérification et corrections à faire.
+- [ ] **O-01 — Erreurs du chat sans trace serveur** : journalisation des erreurs inattendues du chat à compléter.
+- [ ] **G-01 — `.gitignore`** : nettoyage non appliqué.
+- [ ] **Q-04 — Configuration au démarrage** : amélioration non appliquée.
+- [ ] **Q-08 — Code mort** : nettoyage non appliqué.
+- [ ] **Q-09 — Fallback et température** : amélioration non appliquée.
+- [ ] **A-01/A-02 — Abstraction des SDK et refactor de `main.py`** : améliorations de maintenance non appliquées.
+- [ ] **A-03 — Cohérence des dépendances** : vérification non appliquée.
+- [ ] **C-02 — Noms des outils, formats et fonctionnalités non implémentées** : pas de changement ; à rouvrir seulement si l’évaluation exige les noms exacts, l’envoi d’invitations ou la mise à jour des statuts.

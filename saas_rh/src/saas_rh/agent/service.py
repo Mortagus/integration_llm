@@ -112,6 +112,7 @@ class AgentService:
                 tools=tools,
                 tool_choice="auto",
                 parallel_tool_calls=False,
+                max_tokens=1024,
                 temperature=0.0,
                 stream=True,
             ) as response_stream:
@@ -274,6 +275,7 @@ class AgentService:
                 tools=tools,
                 tool_choice="auto",
                 parallel_tool_calls=False,
+                max_tokens=1024,
                 temperature=0.0,
             )
             message = response.choices[0].message

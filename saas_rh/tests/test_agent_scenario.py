@@ -17,7 +17,8 @@ USER_REQUEST = (
 )
 CONFIRMATION = (
     "Entretien confirmé pour Jean Dupont le 2026-10-15 à 09:00. "
-    "Invitation envoyée à jean.dupont@email.com."
+    "Invitation envoyée à jean.dupont@email.com. "
+    "Simulation de l'exercice : aucun e-mail réel n'a été envoyé."
 )
 
 

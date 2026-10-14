@@ -49,11 +49,16 @@ def _python_score(skills: list[str]) -> float:
 
 
 def _has_skill(skills: list[str], term: str) -> float:
-    return float(any(term in skill for skill in skills))
+    return float(any(_has_term(skill, term) for skill in skills))
 
 
 def _has_any_skill(skills: list[str], terms: tuple[str, ...]) -> float:
-    return float(any(term in skill for skill in skills for term in terms))
+    return float(any(_has_term(skill, term) for skill in skills for term in terms))
+
+
+def _has_term(skill: str, term: str) -> bool:
+    """Match a term as a phrase instead of accepting arbitrary substrings."""
+    return re.search(rf"\b{re.escape(term)}\b", skill) is not None
 
 
 def _rag_score(skills: list[str]) -> float:
