@@ -7,7 +7,8 @@ from openai import APIStatusError as OpenAIAPIStatusError
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam
 
-from saas_rh.candidates.schemas import CandidateParseResponse
+from saas_rh.candidates.schemas import CandidateParseEvidence, CandidateParseResponse
+from saas_rh.candidates.scoring import calculate_match_score
 from saas_rh.data.candidates.mock_data import OFFRE_POSTE_DEV_PYTHON
 
 logger = logging.getLogger(__name__)
@@ -44,13 +45,21 @@ class CandidateParserService:
         self.model_names = tuple(dict.fromkeys((model_name, *fallback_model_names)))
 
     def parse_candidate(self, cv_text: str) -> CandidateParseResponse:
-        """Analyse un CV selon l'offre Python/IA et valide la sortie avec Pydantic."""
+        """Extract CV facts, calculate a deterministic score, and validate output."""
         system_prompt = (
-            "Tu es un assistant de recrutement. Analyse le CV fourni et "
-            "évalue son adéquation avec l'offre. N'invente aucune "
-            "information absente du CV. Retourne les années totales "
-            "d'expérience professionnelle pertinentes et justifie "
-            "les points de vigilance."
+            "Tu es un assistant chargé d'extraire des faits d'un CV. "
+            "N'invente aucune information absente du CV et ne calcule aucun score. "
+            "Retourne le total d'années d'expérience professionnelle du CV, "
+            "sans limiter le calcul aux expériences en IA ou RAG. Si le CV donne "
+            "déjà un total dans son résumé, reprends ce total. Dans skills, "
+            "conserve les technologies et leur niveau "
+            "de maîtrise quand il est précisé. N'ajoute RAG que si le terme est "
+            "explicitement mentionné ou si une architecture de recherche et "
+            "d'injection de contexte est décrite. Des mentions de LLM et de "
+            "ChromaDB peuvent être extraites séparément. Dans leadership_evidence, "
+            "ne retourne que des éléments explicites d'encadrement, de mentorat "
+            "ou de pilotage technique ; le titre Senior seul ne suffit pas. "
+            "Justifie les points de vigilance à partir du CV et de l'offre."
         )
         user_prompt = f"Offre de poste :\n{OFFRE_POSTE_DEV_PYTHON}\n\nCV :\n{cv_text}"
         messages: list[ChatCompletionMessageParam] = [
@@ -70,13 +79,13 @@ class CandidateParserService:
                         max_tokens=4096,
                         system=system_prompt,
                         messages=[{"role": "user", "content": user_prompt}],
-                        output_format=CandidateParseResponse,
+                        output_format=CandidateParseEvidence,
                     )
                     candidate = response.parsed_output
                 else:
                     response = self.client.chat.completions.parse(
                         model=model_name,
-                        response_format=CandidateParseResponse,
+                        response_format=CandidateParseEvidence,
                         messages=messages,
                         temperature=0.0,
                     )
@@ -96,7 +105,13 @@ class CandidateParserService:
             if candidate is None:
                 raise ValueError("Le LLM n'a pas retourné de profil candidat valide.")
             logger.info("Le parsing candidat a réussi avec le modèle %s.", model_name)
-            return candidate
+            return CandidateParseResponse(
+                skills=candidate.skills,
+                years_of_experience=candidate.years_of_experience,
+                education_level=candidate.education_level,
+                match_score=calculate_match_score(candidate),
+                warning_points=candidate.warning_points,
+            )
 
         if last_retryable_error is not None:
             raise CandidateModelsUnavailableError(

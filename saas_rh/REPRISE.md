@@ -7,20 +7,24 @@ Exercice de formation sur l’intégration LLM et RAG. Le projet est une API Pyt
 ## État actuel
 
 - L’étape 0 (environnement FastAPI) est terminée : `uv`, Python 3.11, FastAPI, tests Pytest et Ruff sont en place.
-- Les routes principales sont déclarées et testées. `POST /api/agent/chat` diffuse maintenant la réponse de l'agent en SSE avec des événements de texte, d'appel d'outil, de résultat d'outil, d'erreur et de fin.
+- Les routes principales sont déclarées et testées. `POST /api/agent/chat` diffuse la réponse de l'agent en SSE avec des événements de texte, d'appel d'outil, de résultat d'outil, d'erreur et de fin.
 - L’étape 2 (données sources) a été réalisée : politiques RH, offre, CV exemples et agenda sont organisés dans `src/saas_rh/data/`.
 - Les textes de l’offre et des deux CV ont été relus après correction des coupures de mots et nettoyage des espaces. Le contenu est cohérent avec le PDF.
-- Le service `CandidateParserService` est implémenté dans `src/saas_rh/candidates/service.py`. Il utilise `chat.completions.parse` et `CandidateParseResponse` pour extraire le profil à partir du CV texte.
+- Le service `CandidateParserService` est implémenté dans `src/saas_rh/candidates/service.py`. Il utilise les sorties structurées OpenAI/Gemini ou Anthropic pour extraire les faits du CV, puis calcule lui-même le score avec `calculate_match_score` dans `src/saas_rh/candidates/scoring.py`.
 - Le client du fournisseur choisi (`OpenAI` compatible Gemini ou SDK `Anthropic`) est créé pendant le cycle de vie FastAPI et fermé à l'arrêt. La dépendance `get_candidate_parser_service` fournit le `CandidateParserService` à la route via `Depends`.
 - Le fournisseur du parsing candidat se choisit avec `LLM_PROVIDER` (`gemini` ou `anthropic`). Le SDK Python Anthropic est installé et son client est construit dans le cycle de vie FastAPI ; les deux fournisseurs utilisent `CandidateParseResponse` en sortie structurée. Les URL, modèles et modèles de repli sont configurés dans le `.env` à la racine du dossier de formation.
 - `POST /api/candidates/parse` analyse du texte ou extrait le texte sélectionnable d'un PDF avec `pypdf`. Les PDF scannés sans couche texte ne sont pas encore pris en charge (OCR à prévoir). Sans la clé du fournisseur sélectionné, la route répond 503.
 - `CandidateParserService` tente les modèles configurés pour le fournisseur actif dans l'ordre et bascule après des erreurs temporaires ou de modèle indisponible. Si toute la liste échoue, l'erreur 503 contient le nom du dernier modèle tenté et le message renvoyé par le fournisseur. Les tests unitaires couvrent ce message, le basculement, l'absence de repli sur une erreur 400 et le rejet d'une sortie structurée absente.
-- Le test fonctionnel opt-in vérifie maintenant les deux CV : score supérieur à 80 et présence de FastAPI pour Jean Dupont, score inférieur à 40 pour Sophie Martin. Ce parcours réel n'a pas encore été rejoué après son extension.
+- Le test fonctionnel opt-in vérifie les deux CV : score supérieur à 80 et présence de FastAPI pour Jean Dupont, score inférieur à 40 pour Sophie Martin. Il peut aussi envoyer le PDF local à l'API réelle. Après le remplacement du score LLM par le barème déterministe, l'utilisateur a relancé ce test avec Gemini et en a confirmé le succès.
 - La configuration Anthropic accepte `ANTHROPIC_WORKSPACE_ID` et envoie l'en-tête `anthropic-workspace-id` lorsque cette valeur est renseignée. Un test unitaire vérifie la construction du client sans appel réseau.
 
 ## Parsing candidat — terminé
 
-Le DTO existe dans `src/saas_rh/candidates/schemas.py` : `CandidateParseResponse` contient `skills`, `years_of_experience`, `education_level`, `match_score` (0–100) et `warning_points`. Le test TDD de parsing PDF a d'abord échoué sur le statut 501, puis est passé après l'ajout de l'extracteur et du branchement dans la route. Le test unitaire utilise un parseur simulé ; le test fonctionnel opt-in envoie aussi le CV PDF local à l'API réelle quand ce fichier est présent.
+Le DTO d'extraction `CandidateParseEvidence` contient les compétences, les années d'expérience générales, le niveau d'études, les points de vigilance et les preuves explicites de leadership. `CandidateParseResponse` expose `skills`, `years_of_experience`, `education_level`, `match_score` (0–100) et `warning_points`.
+
+Le score est déterminé par neuf critères de poids égal : les sept compétences obligatoires de l'offre, l'expérience et le leadership. L'expérience est plafonnée à cinq ans. Python sans version précisée vaut 90 % des points de son critère ; LLM + ChromaDB sans architecture RAG décrite vaut 75 % ; RAG explicitement décrit vaut le maximum. Aucun point de leadership n'est donné sans preuve explicite. Le diplôme est extrait mais ne compte pas, car l'offre ne le demande pas. Pour les éléments connus du CV de Jean, le calcul donne 85/100.
+
+Le calcul pur est couvert dans `tests/test_candidate_scoring.py`, notamment pour Jean, la preuve RAG indirecte ou explicite, Python de base et Python 3.11+. Les tests du service vérifient aussi que le score renvoyé est calculé à partir des faits extraits, plutôt que fourni par le LLM. Le test TDD de parsing PDF a d'abord échoué sur le statut 501, puis est passé après l'ajout de l'extracteur et du branchement dans la route. Le test fonctionnel opt-in envoie aussi le CV PDF local à l'API réelle quand ce fichier est présent.
 
 ## Étape 4 : Assistant RH RAG — terminée
 
@@ -39,10 +43,18 @@ Les étapes ci-dessous seront mises à jour et marquées **faites** au fur et à
 - [x] **7. Tester le scénario complet avec des dépendances simulées** — `tests/test_agent_scenario.py` simule les réponses du LLM et vérifie, pour OpenAI/Gemini et Anthropic, la recherche le `2026-10-15`, la réservation effective du créneau choisi pour Jean Dupont et le statut `SUCCEEDED` transmis avant confirmation. Aucun e-mail ni appel fournisseur réel n'est effectué par ces tests.
 - [x] **8. Relier `POST /api/agent/chat` et diffuser les événements SSE** — la route transmet le message à `AgentService` et diffuse les fragments texte, appels et résultats d'outils, puis l'événement `done`. En cas de problème, elle diffuse `error` puis `done` avec le statut d'erreur. Les tests simulés couvrent les événements de route ainsi que le streaming OpenAI et Anthropic, sans appel réseau.
 
-L'endpoint SSE et le tool calling sont implémentés. La prochaine étape est de connecter l'interface de chat à `POST /api/agent/chat` et de traiter les différents événements côté navigateur.
+## Interface web et validation finale
+
+L'interface est implémentée et a été testée manuellement par l'utilisateur. Elle présente les quatre parcours : parsing candidat, assistant RH RAG, consultation de l'agenda et chat de l'agent. Les résultats sont affichés avec une présentation adaptée à chaque parcours ; le chat rend visibles le texte en streaming et les actions de l'agent.
+
+La suite automatisée standard a été lancée après le calcul déterministe du score avec `uv run pytest` : **48 tests réussis, 3 ignorés** (2,59 s). Les trois tests ignorés sont fonctionnels et opt-in : ils nécessitent un serveur local et des appels réels au fournisseur LLM. Les tests RAG fonctionnels avaient réussi lors d'une précédente exécution opt-in ; après le changement de calcul, le test de parsing candidat a été relancé avec Gemini et l'utilisateur en a confirmé le succès.
+
+Les trois démonstrations fonctionnelles du PDF restent les scénarios de référence : parsing des deux CV, question RAG répondue puis refusée, et recherche/réservation d'un entretien. Les tests fonctionnels réels n'ont pas été activés lors de la validation standard ; ils restent à exécuter séparément si l'on souhaite vérifier l'intégration avec le fournisseur configuré.
+
+Le PDF évoque aussi l'envoi d'invitations et la mise à jour des statuts candidats dans la description générale de l'agent. Le scénario de validation demandé se limite à la recherche et à la réservation, et ces fonctions supplémentaires ne sont pas implémentées.
 
 ## Vérifications parsing à rejouer (facultatif)
 
-Relancer les tests fonctionnels des deux CV texte et du PDF avec Gemini puis Anthropic, vérifier les scores attendus et le basculement entre modèles. Ces appels nécessitent une clé valide pour chaque fournisseur. Si la clé Anthropic n'est pas liée à un workspace, renseigner `ANTHROPIC_WORKSPACE_ID` dans le `.env`.
+La validation fonctionnelle opt-in avec Gemini est réussie pour le parsing candidat et le RAG. La bascule entre modèles n'a pas été vérifiée et n'est pas requise pour clôturer cette étape. Si la clé Anthropic n'est pas liée à un workspace, renseigner `ANTHROPIC_WORKSPACE_ID` dans le `.env`.
 
 Le PDF source est à la racine : `Projet SaaS RH & Assistant de Recrutement.pdf`. Le plan complet est dans `PLAN_PROJET.md`.

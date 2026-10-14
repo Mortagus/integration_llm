@@ -42,7 +42,9 @@ Rassembler les données sources fournies dans l’énoncé : politiques RH, offr
 
 ## Étape 3 — Parsing structuré des CV
 
-Commencer par le CV sous forme de texte ; ajouter l’extraction de texte PDF ensuite. Demander au LLM un résultat conforme à un modèle Pydantic : compétences, années d’expérience, études, score d’adéquation et points de vigilance.
+Commencer par le CV sous forme de texte ; ajouter l’extraction de texte PDF ensuite. Demander au LLM un résultat conforme à un modèle Pydantic contenant les faits extraits du CV : compétences, années d’expérience, études, indices de leadership et points de vigilance. Le LLM ne décide pas du score : un calcul Python déterministe applique le barème à ces faits.
+
+Le barème initial attribue un poids égal aux sept compétences obligatoires de l’offre, à l’expérience et au leadership. Les années d’expérience sont plafonnées au seuil demandé de cinq ans. Une mention professionnelle de Python sans version vaut 90 % des points du critère ; une simple notion de Python vaut 25 %. L’association LLM + ChromaDB sans description RAG vaut 75 % ; une architecture RAG explicitement décrite vaut le maximum. Le leadership ne rapporte des points qu’avec une preuve explicite. Le niveau d’études reste extrait, mais n’entre pas dans le score car l’offre n’impose pas de diplôme.
 
 La validation du modèle est obligatoire : une réponse LLM mal formée ne doit pas être retournée comme un succès. Prévoir une erreur lisible ou une stratégie de nouvelle tentative contrôlée.
 
@@ -51,6 +53,8 @@ La validation du modèle est obligatoire : une réponse LLM mal formée ne doit 
 - Jean Dupont obtient un score supérieur à 80 et fait ressortir FastAPI et RAG.
 - Sophie Martin obtient un score inférieur à 40.
 - Une sortie invalide du LLM est détectée.
+
+**État : implémenté.** Le calcul du score est isolé dans une fonction pure et couvert par des tests déterministes. Pour les éléments connus du CV de Jean, le barème produit 85/100. Le test fonctionnel opt-in avec Gemini a ensuite été relancé par l'utilisateur et est passé.
 
 ## Étape 4 — Assistant RH RAG
 
@@ -80,9 +84,13 @@ Faire diffuser par `/api/agent/chat` des événements SSE distincts : fragment d
 
 **Critère de fin :** un utilisateur voit la progression de la réponse et comprend quels outils l’agent a utilisés.
 
+**État : terminé.** L'application propose une interface web avec un écran d'accueil et un parcours par pilier : parsing candidat, assistant RH RAG, consultation des créneaux et chat de l'agent. Les réponses sont présentées sous une forme adaptée à chaque parcours ; le chat affiche les événements SSE et les actions de l'agent.
+
 ## Étape 8 — Validation finale
 
 Exécuter les trois démonstrations de l’énoncé : parsing des deux CV, réponses RAG fondée et refusée, puis réservation d’entretien. Ajouter des tests unitaires pour les services et des tests API pour les parcours principaux. Les appels LLM, vector store et e-mail doivent être simulés dans les tests.
+
+**État : validation réussie.** Après l'ajout du calcul déterministe du score, `uv run pytest` a donné **48 tests réussis et 3 ignorés**. Les tests ignorés sont les tests fonctionnels opt-in qui nécessitent un serveur local et des appels LLM réels ; le test de parsing candidat a ensuite été relancé avec Gemini et confirmé comme réussi par l'utilisateur. Les tests fonctionnels RAG avaient aussi réussi lors d'une précédente exécution opt-in. L'interface a été vérifiée manuellement par l'utilisateur.
 
 ## Principes à préserver
 

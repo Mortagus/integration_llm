@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, Mock
 import pytest
 from openai import APIStatusError
 
-from saas_rh.candidates.schemas import CandidateParseResponse
+from saas_rh.candidates.schemas import CandidateParseEvidence
 from saas_rh.candidates.service import (
     CandidateModelsUnavailableError,
     CandidateParserService,
@@ -32,12 +32,12 @@ def make_client(parse_mock: Mock) -> SimpleNamespace:
 
 
 def test_candidate_parser_falls_back_after_temporary_model_error() -> None:
-    candidate = CandidateParseResponse(
+    candidate = CandidateParseEvidence(
         skills=["Python", "FastAPI"],
         years_of_experience=6,
         education_level="Master",
-        match_score=90,
         warning_points=[],
+        leadership_evidence=[],
     )
     parsed_response = SimpleNamespace(
         choices=[SimpleNamespace(message=SimpleNamespace(parsed=candidate))]
@@ -51,7 +51,8 @@ def test_candidate_parser_falls_back_after_temporary_model_error() -> None:
 
     result = service.parse_candidate(CANDIDAT_EXEMPLE_1)
 
-    assert result is candidate
+    assert result.skills == candidate.skills
+    assert result.match_score == 32
     assert [call.kwargs["model"] for call in parse_mock.call_args_list] == [
         "gemini-model-surcharge",
         "gemini-model-disponible",
